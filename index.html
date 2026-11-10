@@ -15,7 +15,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 </head>
 <body>
 <div class="wrap">
-<header class="top"><div class="brand"><div class="logo">TA</div><div><h1>TRADING INTELIGENCIA AI</h1><p>Centro de investigación cuantitativa · versión inicial</p></div></div><div class="chips"><span class="badge">MODO SIMULACIÓN</span><span class="chip" id="connection">Conectando…</span><span class="chip" id="networkState">Red: comprobando…</span></div></header>
+<header class="top"><div class="brand"><div class="logo">TA</div><div><h1>TRADING INTELIGENCIA AI</h1><p>Centro de análisis cuantitativo de mercados</p></div></div><div class="chips"><span class="badge">MERCADO CONECTADO · ANÁLISIS EN VIVO</span><span class="chip" id="connection">Conectando…</span><span class="chip" id="networkState">Red: comprobando…</span></div></header>
 <section id="login" class="card login">
 <h2>Acceso seguro</h2><p class="muted">Inicia sesión con el usuario creado en Supabase Authentication.</p>
 <div class="field"><label>Correo electrónico</label><input id="email" type="email" autocomplete="username" placeholder="tu correo"></div>
@@ -26,26 +26,26 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <nav class="tabs"><button class="active" data-tab="home">Centro de mando</button><button class="ghost" data-tab="lab">Laboratorio</button><button class="ghost" data-tab="learn">Aprendizaje</button><button class="ghost" data-tab="results">Resultados</button><button class="ghost" id="logout">Cerrar sesión</button></nav>
 <div id="home" class="tabview">
 <div class="grid">
-<div class="card span4"><div class="muted small">Estado del sistema</div><div class="stat ok">Investigación activa</div><p class="muted small">Sin órdenes reales ni conexión a broker.</p></div>
+<div class="card span4"><div class="muted small">Estado del sistema</div><div class="stat ok">Servicio de análisis activo</div><p class="muted small">Datos de mercado conectados. Sin ejecución de órdenes en broker.</p></div>
 <div class="card span4"><div class="muted small">Instrumentos iniciales</div><div class="stat">10</div><p class="muted small">Cripto, Forex, metales, energía e índices.</p></div>
 <div class="card span4"><div class="muted small">Estrategias disponibles</div><div class="stat" id="strategyCount">—</div><p class="muted small">Plantillas experimentales.</p></div>
 <div class="card span12" id="collectorPanel"><h2>Motor automático de mercado · servicio en la nube</h2><p class="muted small">El colector se ejecuta en Supabase aunque cierres esta página o el teléfono no tenga conexión. La captura depende de Internet y de la disponibilidad/cuota del proveedor.</p><div class="grid"><div class="span4"><div class="muted small">Última captura</div><div class="stat" id="collectorLast">—</div></div><div class="span4"><div class="muted small">Capturas correctas · 24 h</div><div class="stat" id="collectorOk">—</div></div><div class="span4"><div class="muted small">Velas históricas guardadas</div><div class="stat" id="collectorBars">—</div></div></div><p id="collectorDetail" class="small muted">Esperando lectura del servicio…</p><div class="notice">Modo sin conexión: la aplicación puede abrir su estructura y mostrar la última información guardada en este dispositivo. No puede recibir precios nuevos ni descargar información de Internet cuando no hay conexión.</div></div><div class="card span12"><h2>Universo de análisis</h2><div class="chips"><span class="chip">BTC/USD</span><span class="chip">ETH/USD</span><span class="chip">EUR/USD</span><span class="chip">GBP/USD</span><span class="chip">USD/JPY</span><span class="chip">XAU/USD · Oro</span><span class="chip">XAG/USD · Plata</span><span class="chip">WTI/USD · Petróleo</span><span class="chip">SPX500</span><span class="chip">NAS100</span></div></div>
 <div class="card span12" id="liveDesk">
 <h2>Asesor cuantitativo · Análisis de mercado en tiempo real</h2>
-<p class="muted small">Consulta datos recientes de Twelve Data y calcula una lectura experimental. No ejecuta órdenes ni garantiza resultados.</p>
+<p class="muted small">Gráfico de velas con datos del proveedor, lectura automática y actualización periódica mientras esta pantalla permanezca abierta. Las indicaciones son análisis; no son órdenes enviadas a un broker.</p>
 <div class="grid">
 <div class="span4"><div class="field"><label>Instrumento</label><select id="liveSymbol"><option>BTC/USD</option><option>ETH/USD</option><option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>XAU/USD</option><option>XAG/USD</option><option>WTI/USD</option><option>SPX500</option><option>NAS100</option></select></div></div>
 <div class="span4"><div class="field"><label>Intervalo</label><select id="liveInterval"><option value="5min">5 minutos</option><option value="15min">15 minutos</option><option value="30min">30 minutos</option><option value="1h" selected>1 hora</option><option value="4h">4 horas</option><option value="1day">1 día</option></select></div></div>
 <div class="span4"><div class="field"><label>&nbsp;</label><button id="liveAnalyze" type="button">Analizar mercado ahora</button></div></div>
 </div>
-<div id="liveOutput" class="section"><div class="notice">Pulsa «Analizar mercado ahora» para consultar el proveedor. La señal solo será orientativa y experimental.</div></div>
+<div class="card section"><div class="chips"><span class="chip" id="chartSymbol">Esperando instrumento</span><span class="chip" id="chartUpdated">Esperando datos</span><span class="chip">Velas del proveedor</span></div><canvas id="marketChart" height="300" style="width:100%;height:300px;display:block;margin-top:12px"></canvas><p class="small muted">Verde: vela alcista. Rojo: vela bajista. La última vela puede cambiar hasta que cierre el intervalo.</p></div><div id="liveOutput" class="section"><div class="notice">Pulsa «Analizar mercado ahora» para cargar las velas y obtener una lectura sencilla.</div></div>
 <p id="liveStamp" class="small muted" aria-live="polite"></p>
 <div class="section">
  <button id="evaluateSignals" type="button">Evaluar señales anteriores</button>
  <div id="evaluationOutput" class="notice section">El evaluador comprobará las señales guardadas contra velas posteriores. Solo registra resultados históricos; no ejecuta operaciones.</div>
 </div>
 </div>
-<div class="card span12"><div class="notice">Esta aplicación está en fase de pruebas. Los resultados históricos no garantizan beneficios futuros. No se ejecutan operaciones reales y no se promete una tasa de acierto determinada. Antes de usar dinero real habrá que validar datos, costes, riesgo y disponibilidad legal del broker para residentes en Cuba.</div></div>
+<div class="card span12"><div class="notice">Estado real del producto: conexión de datos y análisis automático activos cuando el proveedor responde. La aplicación todavía no está conectada a un broker y no puede abrir operaciones con dinero real. No confundas una señal de análisis con una orden ejecutada. Ningún sistema puede garantizar ganancias.</div></div>
 </div></div>
 <div id="lab" class="tabview hidden">
 <div class="grid">
@@ -67,7 +67,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <div id="results" class="tabview hidden"><div class="card"><h2>Resultados de experimentos</h2><p class="muted small">Los resultados se muestran después de ejecutar un backtest.</p><div class="actions"><button class="ghost" id="refreshResults">Actualizar</button></div><div id="decisionSummary" class="section"><div class="notice">Preparando una lectura sencilla de los resultados…</div></div><div class="tablewrap section"><table><thead><tr><th>Fecha</th><th>Instrumento</th><th>Estrategia</th><th>Retorno</th><th>Drawdown</th><th>Acierto</th><th>Operaciones</th></tr></thead><tbody id="resultsBody"><tr><td colspan="7" class="muted">Sin resultados cargados.</td></tr></tbody></table></div><p id="resultsMsg" class="small muted"></p></div></div>
 </main>
 <div id="offlineBanner" class="notice hidden">Estás sin conexión. Se muestran datos guardados; la captura en la nube continúa si el servidor y el proveedor tienen Internet.</div>
-<footer>Trading Inteligencia AI · Sin promesas de rentabilidad · Simulación antes de cualquier riesgo real</footer>
+<footer>Trading Inteligencia AI · Datos de mercado y análisis cuantitativo · Sin promesas de rentabilidad</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -76,6 +76,25 @@ const SUPABASE_URL='https://ijdftqcwyonjmitceugh.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZGZ0cWN3eW9uam1pdGNldWdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMjgwMDQsImV4cCI6MjEwOTgwNDAwNH0.7ahoM0f7rsQGlvhGF2LBifpmQM4ZrBKnPmetWdz5mxw';
 const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
+
+
+function drawMarketCandles(raw,symbol,updatedAt){
+ const canvas=$('marketChart');if(!canvas)return;
+ const rows=Array.isArray(raw)?raw:[];
+ const norm=rows.map(x=>({t:x.datetime||x.timestamp||x.time||'',o:Number(x.open),h:Number(x.high),l:Number(x.low),c:Number(x.close)})).filter(x=>[x.o,x.h,x.l,x.c].every(Number.isFinite)).slice(-70);
+ $('chartSymbol').textContent=symbol;$('chartUpdated').textContent='Actualizado: '+(updatedAt||'hora no indicada');
+ const dpr=window.devicePixelRatio||1,w=Math.max(320,canvas.clientWidth),h=300;
+ canvas.width=w*dpr;canvas.height=h*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+ if(!norm.length){ctx.fillStyle='#aab8d3';ctx.font='14px system-ui';ctx.fillText('El proveedor no devolvió velas para dibujar.',16,35);return;}
+ const pad={l:12,r:72,t:18,b:24},min=Math.min(...norm.map(x=>x.l)),max=Math.max(...norm.map(x=>x.h)),range=max-min||1,y=v=>pad.t+(max-v)/range*(h-pad.t-pad.b),cw=(w-pad.l-pad.r)/norm.length;
+ ctx.strokeStyle='#293653';ctx.lineWidth=1;
+ for(let i=0;i<5;i++){const yy=pad.t+i*(h-pad.t-pad.b)/4;ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.fillStyle='#9eacc8';ctx.font='10px system-ui';ctx.fillText(Number(max-i*range/4).toPrecision(6),w-pad.r+5,yy+3);}
+ norm.forEach((x,i)=>{const xx=pad.l+i*cw+cw/2,up=x.c>=x.o,col=up?'#53d7a0':'#ff728e';ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(xx,y(x.h));ctx.lineTo(xx,y(x.l));ctx.stroke();const top=y(Math.max(x.o,x.c)),bottom=y(Math.min(x.o,x.c));ctx.fillRect(xx-Math.max(2,cw*.28),top,Math.max(3,cw*.56),Math.max(2,bottom-top));});
+ const last=norm[norm.length-1];ctx.fillStyle='#edf3ff';ctx.font='11px system-ui';ctx.fillText('Último: '+Number(last.c).toPrecision(7),pad.l,h-5);
+}
+let liveRefreshTimer=null;
+function startLiveRefresh(){if(liveRefreshTimer)clearInterval(liveRefreshTimer);liveRefreshTimer=setInterval(()=>{if(!document.hidden&&navigator.onLine&&$('app')&&!$('app').classList.contains('hidden'))analyzeLiveMarket();},300000);}
+window.addEventListener('resize',()=>{if(window.__lastCandles)drawMarketCandles(window.__lastCandles.rows,window.__lastCandles.symbol,window.__lastCandles.updatedAt);});
 
 async function analyzeLiveMarket(){
  const btn=$('liveAnalyze'), out=$('liveOutput'), stamp=$('liveStamp');
@@ -90,6 +109,7 @@ async function analyzeLiveMarket(){
   if(!response.ok) throw new Error(payload.details||payload.message||payload.error||('Error HTTP '+response.status));
   if(payload.status!=='ok'||!payload.analysis) throw new Error(payload.message||payload.details||('Proveedor no disponible: '+(payload.status||'respuesta incompleta')));
   const a=payload.analysis, n=Number(a.price), sl=Number(a.stop_loss), tp=Number(a.take_profit);
+  window.__lastCandles={rows:payload.candles||payload.data||[],symbol,updatedAt:payload.updated_at};drawMarketCandles(window.__lastCandles.rows,symbol,payload.updated_at);
   const valid=Number.isFinite(n)&&Number.isFinite(sl)&&Number.isFinite(tp)&&sl>0&&tp>0;
   const rr=valid&&Math.abs(n-sl)>0?Math.abs(tp-n)/Math.abs(n-sl):null;
   const side=a.side==='long'?'COMPRA':a.side==='short'?'VENTA':'ESPERAR';
@@ -97,13 +117,16 @@ async function analyzeLiveMarket(){
   const tone=decision==='NO OPERAR'?'bad':'ok';
   const fmt=v=>Number.isFinite(Number(v))?Number(v).toPrecision(8):'—';
   const pct=v=>v===null||v===undefined?'No calibrada':(Number.isFinite(Number(v))?(Number(v)*100).toFixed(1)+'%':'—');
-  out.innerHTML='<div class="card"><div class="muted small">LECTURA EXPERIMENTAL · '+escapeHtml(symbol)+' · '+escapeHtml(interval)+'</div><h2 class="'+tone+'">'+decision+'</h2><div class="grid"><div class="span4"><div class="muted small">Precio observado</div><div class="stat">'+fmt(a.price)+'</div></div><div class="span4"><div class="muted small">Stop Loss teórico</div><div class="stat">'+fmt(a.stop_loss)+'</div></div><div class="span4"><div class="muted small">Take Profit teórico</div><div class="stat">'+fmt(a.take_profit)+'</div></div></div><p>Relación riesgo/beneficio teórica: <b>'+(rr===null?'—':rr.toFixed(2)+' : 1')+'</b> · Confianza interna del modelo: <b>'+pct(a.confidence)+'</b></p><p>RSI: '+fmt(a.rsi)+' · EMA20: '+fmt(a.ema20)+' · EMA50: '+fmt(a.ema50)+' · MACD: '+fmt(a.macd)+' · ATR: '+fmt(a.atr)+'</p><p class="muted small">'+escapeHtml(a.note||'Señal algorítmica experimental.')+'</p><div class="notice">El Stop Loss y Take Profit son estimaciones del modelo, no órdenes colocadas. No se calcula tamaño de posición porque faltan especificaciones contractuales y valor por punto de cada instrumento. La confianza no es una probabilidad calibrada de ganar.</div></div>';
-  stamp.textContent='Proveedor: '+(payload.provider||'—')+' · Datos UTC: '+(payload.updated_at||'sin marca temporal')+' · Historial: '+(payload.persistence?.saved?'señal guardada':('no guardada ('+(payload.persistence?.reason||'sin confirmación')+')'))+'. Análisis puntual; no es vigilancia continua.';
+  out.innerHTML='<div class="card"><div class="muted small">LECTURA DEL MERCADO · '+escapeHtml(symbol)+' · '+escapeHtml(interval)+'</div><h2 class="'+tone+'">'+decision+'</h2><div class="grid"><div class="span4"><div class="muted small">Precio observado</div><div class="stat">'+fmt(a.price)+'</div></div><div class="span4"><div class="muted small">Stop Loss teórico</div><div class="stat">'+fmt(a.stop_loss)+'</div></div><div class="span4"><div class="muted small">Take Profit teórico</div><div class="stat">'+fmt(a.take_profit)+'</div></div></div><p>Relación riesgo/beneficio teórica: <b>'+(rr===null?'—':rr.toFixed(2)+' : 1')+'</b> · Confianza interna del modelo: <b>'+pct(a.confidence)+'</b></p><p>RSI: '+fmt(a.rsi)+' · EMA20: '+fmt(a.ema20)+' · EMA50: '+fmt(a.ema50)+' · MACD: '+fmt(a.macd)+' · ATR: '+fmt(a.atr)+'</p><p class="muted small">'+escapeHtml(a.note||'Señal algorítmica experimental.')+'</p><div class="notice">El Stop Loss y Take Profit son estimaciones del modelo, no órdenes colocadas. No se calcula tamaño de posición porque faltan especificaciones contractuales y valor por punto de cada instrumento. La confianza no es una probabilidad calibrada de ganar.</div></div>';
+  stamp.textContent='Proveedor: '+(payload.provider||'—')+' · Último dato: '+(payload.updated_at||'sin marca temporal')+' · '+(payload.persistence?.saved?'señal guardada':'señal no guardada')+'. Próxima actualización automática en hasta 5 minutos.';
  }catch(e){
   out.innerHTML='<div class="notice">'+escapeHtml(e.message||'No se pudo completar el análisis.')+'</div>';
  }finally{btn.disabled=false;}
 }
 $('liveAnalyze').onclick=analyzeLiveMarket;
+$('liveSymbol').addEventListener('change',()=>{if(navigator.onLine)analyzeLiveMarket();});
+$('liveInterval').addEventListener('change',()=>{if(navigator.onLine)analyzeLiveMarket();});
+startLiveRefresh();
 
 
 
@@ -210,7 +233,7 @@ function renderDecisionSummary(rows,instruments,templates){
  const best=approved[0];
  let html='';
  if(best){
-  html='<div class="card"><div class="muted small">LECTURA AUTOMÁTICA · SOLO SIMULACIÓN</div><h2 class="ok">Candidata para seguir probando</h2><div class="stat">'+escapeHtml(instruments.get(best.instrumentId)||'Instrumento sin nombre')+'</div><p><b>Estrategia:</b> '+escapeHtml(templates.get(best.strategyId)||best.strategyId)+'</p><p>Validación: '+fmtPct(best.vret)+' · Prueba: '+fmtPct(best.tret)+'</p><p class="muted small">Superó los filtros iniciales: retorno positivo y factor de ganancia superior a 1 en validación y prueba, con al menos 20 operaciones en cada tramo. No es garantía ni señal para usar dinero real.</p></div>';
+  html='<div class="card"><div class="muted small">LECTURA ESTADÍSTICA · HISTORIAL</div><h2 class="ok">Candidata para seguir probando</h2><div class="stat">'+escapeHtml(instruments.get(best.instrumentId)||'Instrumento sin nombre')+'</div><p><b>Estrategia:</b> '+escapeHtml(templates.get(best.strategyId)||best.strategyId)+'</p><p>Validación: '+fmtPct(best.vret)+' · Prueba: '+fmtPct(best.tret)+'</p><p class="muted small">Superó los filtros iniciales: retorno positivo y factor de ganancia superior a 1 en validación y prueba, con al menos 20 operaciones en cada tramo. No es garantía ni señal para usar dinero real.</p></div>';
  }else{
   html='<div class="card"><div class="muted small">LECTURA AUTOMÁTICA · DECISIÓN SENCILLA</div><h2 class="bad">Por ahora: NO OPERAR</h2><p>Los resultados todavía no demuestran una estrategia suficientemente consistente fuera del período de entrenamiento.</p><p class="muted small">Para recomendar una estrategia exigiremos que gane tanto en validación como en prueba, tenga factor de ganancia mayor que 1 y acumule al menos 20 operaciones en cada tramo. Si faltan operaciones, la decisión será «seguir probando», no inventar un porcentaje de éxito.</p></div>';
  }
