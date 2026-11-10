@@ -34,7 +34,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <div id="lab" class="tabview hidden">
 <div class="grid">
 <div class="card span4"><h2>Configuración</h2><div class="field"><label>Intervalo</label><select id="interval"><option value="1day">1 día</option><option value="4h">4 horas</option><option value="1h" selected>1 hora</option><option value="30min">30 minutos</option><option value="15min">15 minutos</option><option value="5min">5 minutos</option></select></div><div class="field"><label>Coste estimado por operación (puntos básicos)</label><input id="cost" type="number" min="0" max="500" value="10"></div><div class="field"><label>Instrumentos (máximo 4)</label><div class="list" id="symbols"><label class="choice"><input type="checkbox" value="BTC/USD" checked> BTC/USD</label><label class="choice"><input type="checkbox" value="ETH/USD"> ETH/USD</label><label class="choice"><input type="checkbox" value="EUR/USD" checked> EUR/USD</label><label class="choice"><input type="checkbox" value="GBP/USD"> GBP/USD</label><label class="choice"><input type="checkbox" value="USD/JPY"> USD/JPY</label><label class="choice"><input type="checkbox" value="XAU/USD" checked> XAU/USD</label><label class="choice"><input type="checkbox" value="XAG/USD"> XAG/USD</label><label class="choice"><input type="checkbox" value="WTI/USD"> WTI/USD</label><label class="choice"><input type="checkbox" value="SPX500"> SPX500</label><label class="choice"><input type="checkbox" value="NAS100"> NAS100</label></div></div></div>
-<div class="card span8"><h2>Estrategias</h2><p class="muted small">Selecciona las estrategias que quieres evaluar. Se cargan desde la base de datos.</p><div class="actions"><button class="ghost" id="allStrategies">Seleccionar todas</button><button class="ghost" id="noStrategies">Ninguna</button></div><div class="list section" id="strategies"><span class="muted small">Cargando plantillas…</span></div><div class="actions"><button id="runBtn">Ejecutar experimento histórico</button></div><p id="runMsg" class="small muted" aria-live="polite"></p></div>
+<div class="card span8"><h2>Estrategias</h2><p class="muted small">Selecciona las estrategias que quieres evaluar. Se cargan desde la base de datos.</p><div class="actions"><button class="ghost" id="allStrategies">Seleccionar todas</button><button class="ghost" id="noStrategies">Ninguna</button><button class="ghost" id="reloadStrategies">Actualizar lista</button></div><div class="list section" id="strategies"><span class="muted small">Cargando plantillas…</span></div><div class="actions"><button id="runBtn">Ejecutar experimento histórico</button></div><p id="runMsg" class="small muted" aria-live="polite"></p></div>
 </div></div>
 <div id="results" class="tabview hidden"><div class="card"><h2>Resultados de experimentos</h2><p class="muted small">Los resultados se muestran después de ejecutar un backtest.</p><div class="actions"><button class="ghost" id="refreshResults">Actualizar</button></div><div class="tablewrap section"><table><thead><tr><th>Fecha</th><th>Instrumento</th><th>Estrategia</th><th>Retorno</th><th>Drawdown</th><th>Acierto</th><th>Operaciones</th></tr></thead><tbody id="resultsBody"><tr><td colspan="7" class="muted">Sin resultados cargados.</td></tr></tbody></table></div><p id="resultsMsg" class="small muted"></p></div></div>
 </main>
@@ -54,9 +54,39 @@ function credentialsValid(){const email=$('email').value.trim();const password=$
 async function signup(){if(!credentialsValid())return;$('signupBtn').disabled=true;$('loginBtn').disabled=true;msg('loginMsg','Creando tu cuenta…');try{const {data,error}=await supabaseClient.auth.signUp({email:$('email').value.trim(),password:$('password').value,options:{emailRedirectTo:'https://charly83cah83-lab.github.io/Trading-Inteligencia-AI/'}});if(error)throw error;if(data.session){showApp(data.user);msg('loginMsg','Cuenta creada. Ya puedes entrar.','ok')}else{msg('loginMsg','Solicitud de registro enviada. Revisa tu correo y confirma la cuenta; después vuelve aquí y pulsa Entrar.','ok')}}catch(e){msg('loginMsg',e.message||'No se pudo crear la cuenta.','bad')}finally{$('signupBtn').disabled=false;$('loginBtn').disabled=false}}
 async function login(){if(!$('email').value.trim()||!$('password').value){msg('loginMsg','Escribe tu correo y contraseña.','bad');return}$('loginBtn').disabled=true;msg('loginMsg','Verificando…');const {error}=await supabaseClient.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('loginBtn').disabled=false;if(error){msg('loginMsg',error.message,'bad');return}msg('loginMsg','Acceso correcto.','ok')}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x===b);x.classList.toggle('ghost',x!==b)});document.querySelectorAll('.tabview').forEach(v=>v.classList.toggle('hidden',v.id!==b.dataset.tab));if(b.dataset.tab==='results')loadResults()});
-async function loadStrategies(){const box=$('strategies');box.innerHTML='<span class="muted small">Consultando estrategias…</span>';const {data,error}=await supabaseClient.from('strategy_templates').select('id,name,family,description,enabled').eq('enabled',true).order('name');if(error){box.textContent='No se pudieron cargar las estrategias: '+error.message;return}strategies=data||[];$('strategyCount').textContent=strategies.length;box.innerHTML='';strategies.forEach(s=>{const label=document.createElement('label');label.className='choice';const cb=document.createElement('input');cb.type='checkbox';cb.value=s.id;cb.checked=true;const span=document.createElement('span');span.textContent=s.name+' · '+(s.family||'general');label.append(cb,span);box.append(label)});}
+async function loadStrategies(){
+ const box=$('strategies'); if(!box)return;
+ box.innerHTML='<span class="muted small">Consultando estrategias…</span>';
+ $('strategyCount').textContent='…';
+ try{
+  const query=supabaseClient.from('strategy_templates').select('id,name,family,description,enabled').eq('enabled',true).order('name',{ascending:true});
+  const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('La consulta tardó demasiado. Comprueba la conexión y pulsa Reintentar.')),15000));
+  const {data,error}=await Promise.race([query,timeout]);
+  if(error)throw error;
+  if(!Array.isArray(data))throw new Error('La respuesta de la base de datos no tiene el formato esperado.');
+  strategies=data;
+  $('strategyCount').textContent=String(strategies.length);
+  box.replaceChildren();
+  if(!strategies.length){box.textContent='No hay estrategias habilitadas para mostrar.';return;}
+  const fragment=document.createDocumentFragment();
+  strategies.forEach(s=>{
+   const label=document.createElement('label');label.className='choice';
+   const cb=document.createElement('input');cb.type='checkbox';cb.value=s.id;cb.checked=true;
+   const span=document.createElement('span');span.textContent=(s.name||s.id)+' · '+(s.family||'general');
+   label.append(cb,span);fragment.append(label);
+  });
+  box.append(fragment);
+ }catch(e){
+  $('strategyCount').textContent='Error';
+  box.replaceChildren();
+  const error=document.createElement('p');error.className='small bad';error.textContent='No se pudieron mostrar las estrategias: '+(e.message||'Error desconocido');
+  const retry=document.createElement('button');retry.type='button';retry.className='ghost';retry.textContent='Reintentar carga';retry.onclick=loadStrategies;
+  box.append(error,retry);
+ }
+}
 $('allStrategies').onclick=()=>document.querySelectorAll('#strategies input').forEach(x=>x.checked=true);
 $('noStrategies').onclick=()=>document.querySelectorAll('#strategies input').forEach(x=>x.checked=false);
+$('reloadStrategies').onclick=loadStrategies;
 async function runExperiment(){const symbols=[...document.querySelectorAll('#symbols input:checked')].map(x=>x.value);const selected=[...document.querySelectorAll('#strategies input:checked')].map(x=>x.value);if(!symbols.length||symbols.length>4){msg('runMsg','Selecciona entre 1 y 4 instrumentos.','bad');return}if(!selected.length||selected.length>24){msg('runMsg','Selecciona entre 1 y 24 estrategias.','bad');return}const {data:{session}}=await supabaseClient.auth.getSession();if(!session){msg('runMsg','Tu sesión expiró. Vuelve a entrar.','bad');return}$('runBtn').disabled=true;msg('runMsg','Ejecutando análisis histórico. Puede tardar…');try{const r=await fetch(SUPABASE_URL+'/functions/v1/backtest-runner',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({symbols,strategies:selected,interval:$('interval').value,cost_bps:Number($('cost').value)||0})});const body=await r.json().catch(()=>({}));if(!r.ok)throw new Error(body.error||body.message||('Error HTTP '+r.status));msg('runMsg','Experimento terminado. Revisa la pestaña Resultados.','ok');await loadResults()}catch(e){msg('runMsg',e.message,'bad')}finally{$('runBtn').disabled=false}}
 $('runBtn').onclick=runExperiment;
 async function loadResults(){const body=$('resultsBody');body.innerHTML='<tr><td colspan="7">Cargando…</td></tr>';const {data,error}=await supabaseClient.from('experiment_results').select('*').order('created_at',{ascending:false}).limit(100);if(error){body.innerHTML='<tr><td colspan="7">No se pudieron leer los resultados: '+escapeHtml(error.message)+'</td></tr>';return}if(!data?.length){body.innerHTML='<tr><td colspan="7" class="muted">Todavía no hay resultados.</td></tr>';return}body.innerHTML=data.map(x=>'<tr><td>'+escapeHtml((x.created_at||'').slice(0,16).replace('T',' '))+'</td><td>'+escapeHtml(x.symbol||x.instrument_id||'—')+'</td><td>'+escapeHtml(x.strategy_id||'—')+'</td><td>'+fmt(x.total_return??x.return_pct)+'</td><td>'+fmt(x.max_drawdown??x.drawdown)+'</td><td>'+fmt(x.win_rate)+'</td><td>'+escapeHtml(String(x.trade_count??'—'))+'</td></tr>').join('')}
