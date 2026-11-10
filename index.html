@@ -29,6 +29,17 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <div class="card span4"><div class="muted small">Instrumentos iniciales</div><div class="stat">10</div><p class="muted small">Cripto, Forex, metales, energía e índices.</p></div>
 <div class="card span4"><div class="muted small">Estrategias disponibles</div><div class="stat" id="strategyCount">—</div><p class="muted small">Plantillas experimentales.</p></div>
 <div class="card span12"><h2>Universo de análisis</h2><div class="chips"><span class="chip">BTC/USD</span><span class="chip">ETH/USD</span><span class="chip">EUR/USD</span><span class="chip">GBP/USD</span><span class="chip">USD/JPY</span><span class="chip">XAU/USD · Oro</span><span class="chip">XAG/USD · Plata</span><span class="chip">WTI/USD · Petróleo</span><span class="chip">SPX500</span><span class="chip">NAS100</span></div></div>
+<div class="card span12" id="liveDesk">
+<h2>Asesor cuantitativo · Análisis de mercado en tiempo real</h2>
+<p class="muted small">Consulta datos recientes de Twelve Data y calcula una lectura experimental. No ejecuta órdenes ni garantiza resultados.</p>
+<div class="grid">
+<div class="span4"><div class="field"><label>Instrumento</label><select id="liveSymbol"><option>BTC/USD</option><option>ETH/USD</option><option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>XAU/USD</option><option>XAG/USD</option><option>WTI/USD</option><option>SPX500</option><option>NAS100</option></select></div></div>
+<div class="span4"><div class="field"><label>Intervalo</label><select id="liveInterval"><option value="5min">5 minutos</option><option value="15min">15 minutos</option><option value="30min">30 minutos</option><option value="1h" selected>1 hora</option><option value="4h">4 horas</option><option value="1day">1 día</option></select></div></div>
+<div class="span4"><div class="field"><label>&nbsp;</label><button id="liveAnalyze" type="button">Analizar mercado ahora</button></div></div>
+</div>
+<div id="liveOutput" class="section"><div class="notice">Pulsa «Analizar mercado ahora» para consultar el proveedor. La señal solo será orientativa y experimental.</div></div>
+<p id="liveStamp" class="small muted" aria-live="polite"></p>
+</div>
 <div class="card span12"><div class="notice">Esta aplicación está en fase de pruebas. Los resultados históricos no garantizan beneficios futuros. No se ejecutan operaciones reales y no se promete una tasa de acierto determinada. Antes de usar dinero real habrá que validar datos, costes, riesgo y disponibilidad legal del broker para residentes en Cuba.</div></div>
 </div></div>
 <div id="lab" class="tabview hidden">
@@ -40,7 +51,36 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 </main>
 <footer>Trading Inteligencia AI · Sin promesas de rentabilidad · Simulación antes de cualquier riesgo real</footer>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+async function analyzeLiveMarket(){
+ const btn=$('liveAnalyze'), out=$('liveOutput'), stamp=$('liveStamp');
+ btn.disabled=true; out.innerHTML='<p class="muted">Consultando datos de mercado…</p>'; stamp.textContent='';
+ try{
+  const {data:{session}}=await supabaseClient.auth.getSession();
+  if(!session?.access_token) throw new Error('Tu sesión ha caducado. Cierra sesión y vuelve a entrar.');
+  const symbol=$('liveSymbol').value, interval=$('liveInterval').value;
+  const endpoint=SUPABASE_URL+'/functions/v1/market-brain?symbol='+encodeURIComponent(symbol)+'&interval='+encodeURIComponent(interval);
+  const response=await fetch(endpoint,{method:'GET',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token}});
+  const payload=await response.json();
+  if(!response.ok) throw new Error(payload.details||payload.message||payload.error||('Error HTTP '+response.status));
+  if(payload.status!=='ok'||!payload.analysis) throw new Error(payload.message||payload.details||('Proveedor no disponible: '+(payload.status||'respuesta incompleta')));
+  const a=payload.analysis, n=Number(a.price), sl=Number(a.stop_loss), tp=Number(a.take_profit);
+  const valid=Number.isFinite(n)&&Number.isFinite(sl)&&Number.isFinite(tp)&&sl>0&&tp>0;
+  const rr=valid&&Math.abs(n-sl)>0?Math.abs(tp-n)/Math.abs(n-sl):null;
+  const side=a.side==='long'?'COMPRA':a.side==='short'?'VENTA':'ESPERAR';
+  const decision=a.decision==='potential_entry'&&valid&&rr>=1.5?('POSIBLE '+side):'NO OPERAR';
+  const tone=decision==='NO OPERAR'?'bad':'ok';
+  const fmt=v=>Number.isFinite(Number(v))?Number(v).toPrecision(8):'—';
+  const pct=v=>Number.isFinite(Number(v))?(Number(v)*100).toFixed(1)+'%':'—';
+  out.innerHTML='<div class="card"><div class="muted small">LECTURA EXPERIMENTAL · '+escapeHtml(symbol)+' · '+escapeHtml(interval)+'</div><h2 class="'+tone+'">'+decision+'</h2><div class="grid"><div class="span4"><div class="muted small">Precio observado</div><div class="stat">'+fmt(a.price)+'</div></div><div class="span4"><div class="muted small">Stop Loss teórico</div><div class="stat">'+fmt(a.stop_loss)+'</div></div><div class="span4"><div class="muted small">Take Profit teórico</div><div class="stat">'+fmt(a.take_profit)+'</div></div></div><p>Relación riesgo/beneficio teórica: <b>'+(rr===null?'—':rr.toFixed(2)+' : 1')+'</b> · Confianza interna del modelo: <b>'+pct(a.confidence)+'</b></p><p>RSI: '+fmt(a.rsi)+' · EMA20: '+fmt(a.ema20)+' · EMA50: '+fmt(a.ema50)+' · MACD: '+fmt(a.macd)+' · ATR: '+fmt(a.atr)+'</p><p class="muted small">'+escapeHtml(a.note||'Señal algorítmica experimental.')+'</p><div class="notice">El Stop Loss y Take Profit son estimaciones del modelo, no órdenes colocadas. No se calcula tamaño de posición porque faltan especificaciones contractuales y valor por punto de cada instrumento. La confianza no es una probabilidad calibrada de ganar.</div></div>';
+  stamp.textContent='Proveedor: '+(payload.provider||'—')+' · Datos UTC: '+(payload.updated_at||'sin marca temporal')+'. Análisis puntual; no es vigilancia continua.';
+ }catch(e){
+  out.innerHTML='<div class="notice">'+escapeHtml(e.message||'No se pudo completar el análisis.')+'</div>';
+ }finally{btn.disabled=false;}
+}
+$('liveAnalyze').onclick=analyzeLiveMarket;
+
+</script>
 <script>
 const SUPABASE_URL='https://ijdftqcwyonjmitceugh.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZGZ0cWN3eW9uam1pdGNldWdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMjgwMDQsImV4cCI6MjEwOTgwNDAwNH0.7ahoM0f7rsQGlvhGF2LBifpmQM4ZrBKnPmetWdz5mxw';
