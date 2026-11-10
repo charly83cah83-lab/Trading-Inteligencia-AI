@@ -22,7 +22,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <div class="actions"><button id="loginBtn">Entrar</button><button type="button" class="ghost" id="signupBtn">Crear cuenta</button></div><p id="loginMsg" class="small muted" aria-live="polite"></p><p class="small muted">¿Es tu primera vez? Pulsa «Crear cuenta». Si ya tienes usuario, escribe tus datos y pulsa «Entrar».</p>
 </section>
 <main id="app" class="hidden">
-<nav class="tabs"><button class="active" data-tab="home">Centro de mando</button><button class="ghost" data-tab="lab">Laboratorio</button><button class="ghost" data-tab="results">Resultados</button><button class="ghost" id="logout">Cerrar sesión</button></nav>
+<nav class="tabs"><button class="active" data-tab="home">Centro de mando</button><button class="ghost" data-tab="lab">Laboratorio</button><button class="ghost" data-tab="learn">Aprendizaje</button><button class="ghost" data-tab="results">Resultados</button><button class="ghost" id="logout">Cerrar sesión</button></nav>
 <div id="home" class="tabview">
 <div class="grid">
 <div class="card span4"><div class="muted small">Estado del sistema</div><div class="stat ok">Investigación activa</div><p class="muted small">Sin órdenes reales ni conexión a broker.</p></div>
@@ -51,6 +51,17 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <div class="card span4"><h2>Configuración</h2><div class="field"><label>Intervalo</label><select id="interval"><option value="1day">1 día</option><option value="4h">4 horas</option><option value="1h" selected>1 hora</option><option value="30min">30 minutos</option><option value="15min">15 minutos</option><option value="5min">5 minutos</option></select></div><div class="field"><label>Coste estimado por operación (puntos básicos)</label><input id="cost" type="number" min="0" max="500" value="10"></div><div class="field"><label>Instrumentos (máximo 4)</label><div class="list" id="symbols"><label class="choice"><input type="checkbox" value="BTC/USD" checked> BTC/USD</label><label class="choice"><input type="checkbox" value="ETH/USD"> ETH/USD</label><label class="choice"><input type="checkbox" value="EUR/USD" checked> EUR/USD</label><label class="choice"><input type="checkbox" value="GBP/USD"> GBP/USD</label><label class="choice"><input type="checkbox" value="USD/JPY"> USD/JPY</label><label class="choice"><input type="checkbox" value="XAU/USD" checked> XAU/USD</label><label class="choice"><input type="checkbox" value="XAG/USD"> XAG/USD</label><label class="choice"><input type="checkbox" value="WTI/USD"> WTI/USD</label><label class="choice"><input type="checkbox" value="SPX500"> SPX500</label><label class="choice"><input type="checkbox" value="NAS100"> NAS100</label></div></div></div>
 <div class="card span8"><h2>Estrategias</h2><p class="muted small">Selecciona las estrategias que quieres evaluar. Se cargan desde la base de datos.</p><div class="actions"><button class="ghost" id="allStrategies">Seleccionar todas</button><button class="ghost" id="noStrategies">Ninguna</button><button class="ghost" id="reloadStrategies">Actualizar lista</button></div><div class="list section" id="strategies"><span class="muted small">Cargando plantillas…</span></div><div class="actions"><button id="runBtn">Ejecutar experimento histórico</button></div><p id="runMsg" class="small muted" aria-live="polite"></p></div>
 </div></div>
+<div id="learn" class="tabview hidden">
+ <div class="grid">
+  <div class="card span12"><h2>Centro de aprendizaje cuantitativo</h2><p class="muted small">Memoria estadística de experimentos y señales evaluadas. Este módulo mide evidencia; no modifica modelos ni activa operaciones automáticamente.</p><div class="actions"><button id="refreshLearning" type="button">Actualizar aprendizaje</button></div><p id="learningStamp" class="small muted">Pendiente de consulta.</p></div>
+  <div class="card span4"><div class="muted small">Experimentos registrados</div><div class="stat" id="learnExperiments">—</div><p class="muted small">Resultados de backtests guardados.</p></div>
+  <div class="card span4"><div class="muted small">Señales evaluadas</div><div class="stat" id="learnSignals">—</div><p class="muted small">Con resultado observado en velas posteriores.</p></div>
+  <div class="card span4"><div class="muted small">Candidatas robustas</div><div class="stat" id="learnCandidates">—</div><p class="muted small">Filtros conservadores de validación y prueba.</p></div>
+  <div class="card span12"><h2>Diagnóstico del conocimiento acumulado</h2><div id="learningDiagnosis" class="notice">Consultando historial…</div></div>
+  <div class="card span12"><h2>Comparación de estrategias</h2><p class="muted small">Se exige evidencia en validación y prueba. El porcentaje de aciertos por sí solo no determina el ranking.</p><div class="tablewrap"><table><thead><tr><th>Instrumento</th><th>Estrategia</th><th>Validación</th><th>Prueba</th><th>Factor ganancia V/P</th><th>Operaciones V/P</th><th>Evaluación</th></tr></thead><tbody id="learningRows"><tr><td colspan="7">Cargando…</td></tr></tbody></table></div></div>
+  <div class="card span12"><h2>Memoria de señales</h2><div id="signalMemory" class="notice">Consultando señales evaluadas…</div></div>
+ </div>
+</div>
 <div id="results" class="tabview hidden"><div class="card"><h2>Resultados de experimentos</h2><p class="muted small">Los resultados se muestran después de ejecutar un backtest.</p><div class="actions"><button class="ghost" id="refreshResults">Actualizar</button></div><div id="decisionSummary" class="section"><div class="notice">Preparando una lectura sencilla de los resultados…</div></div><div class="tablewrap section"><table><thead><tr><th>Fecha</th><th>Instrumento</th><th>Estrategia</th><th>Retorno</th><th>Drawdown</th><th>Acierto</th><th>Operaciones</th></tr></thead><tbody id="resultsBody"><tr><td colspan="7" class="muted">Sin resultados cargados.</td></tr></tbody></table></div><p id="resultsMsg" class="small muted"></p></div></div>
 </main>
 <footer>Trading Inteligencia AI · Sin promesas de rentabilidad · Simulación antes de cualquier riesgo real</footer>
@@ -100,7 +111,7 @@ async function init(){const {data:{session}}=await supabaseClient.auth.getSessio
 function credentialsValid(){const email=$('email').value.trim();const password=$('password').value;if(!email||!password){msg('loginMsg','Escribe tu correo y una contraseña.','bad');return false}if(password.length<6){msg('loginMsg','La contraseña debe tener al menos 6 caracteres.','bad');return false}return true}
 async function signup(){if(!credentialsValid())return;$('signupBtn').disabled=true;$('loginBtn').disabled=true;msg('loginMsg','Creando tu cuenta…');try{const {data,error}=await supabaseClient.auth.signUp({email:$('email').value.trim(),password:$('password').value,options:{emailRedirectTo:'https://charly83cah83-lab.github.io/Trading-Inteligencia-AI/'}});if(error)throw error;if(data.session){showApp(data.user);msg('loginMsg','Cuenta creada. Ya puedes entrar.','ok')}else{msg('loginMsg','Solicitud de registro enviada. Revisa tu correo y confirma la cuenta; después vuelve aquí y pulsa Entrar.','ok')}}catch(e){msg('loginMsg',e.message||'No se pudo crear la cuenta.','bad')}finally{$('signupBtn').disabled=false;$('loginBtn').disabled=false}}
 async function login(){if(!$('email').value.trim()||!$('password').value){msg('loginMsg','Escribe tu correo y contraseña.','bad');return}$('loginBtn').disabled=true;msg('loginMsg','Verificando…');const {error}=await supabaseClient.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('loginBtn').disabled=false;if(error){msg('loginMsg',error.message,'bad');return}msg('loginMsg','Acceso correcto.','ok')}
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x===b);x.classList.toggle('ghost',x!==b)});document.querySelectorAll('.tabview').forEach(v=>v.classList.toggle('hidden',v.id!==b.dataset.tab));if(b.dataset.tab==='results')loadResults()});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x===b);x.classList.toggle('ghost',x!==b)});document.querySelectorAll('.tabview').forEach(v=>v.classList.toggle('hidden',v.id!==b.dataset.tab));if(b.dataset.tab==='results')loadResults();if(b.dataset.tab==='learn')loadLearning()});
 async function loadStrategies(){
  const box=$('strategies'); if(!box)return;
  box.innerHTML='<span class="muted small">Consultando estrategias…</span>';
@@ -209,6 +220,48 @@ function renderDecisionSummary(rows,instruments,templates){
 }
 function fmtPct(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return'—';return Number(v).toFixed(2)+'%'}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+$('refreshLearning').onclick=loadLearning;
+async function loadLearning(){
+ const rowsBox=$('learningRows'),diag=$('learningDiagnosis'),memory=$('signalMemory');
+ rowsBox.innerHTML='<tr><td colspan="7">Analizando experimentos guardados…</td></tr>';
+ diag.textContent='Calculando métricas y comprobando evidencia fuera de entrenamiento…';
+ try{
+  const {data:exp,error}=await supabaseClient.from('experiment_results').select('id,batch_id,strategy_template_id,instrument_id,timeframe,split_name,metrics,trades_count,created_at').order('created_at',{ascending:false}).limit(3000);
+  if(error)throw error;
+  const data=exp||[];$('learnExperiments').textContent=String(data.length);
+  const instrumentIds=[...new Set(data.map(x=>x.instrument_id).filter(Boolean))],strategyIds=[...new Set(data.map(x=>x.strategy_template_id).filter(Boolean))];
+  const [ir,sr,signalRes]=await Promise.all([
+   instrumentIds.length?supabaseClient.from('instruments').select('id,symbol').in('id',instrumentIds):Promise.resolve({data:[],error:null}),
+   strategyIds.length?supabaseClient.from('strategy_templates').select('id,name').in('id',strategyIds):Promise.resolve({data:[],error:null}),
+   supabaseClient.from('signals').select('id,decision,side,generated_at,outcome').order('generated_at',{ascending:false}).limit(1000)
+  ]);
+  if(ir.error)throw ir.error;if(sr.error)throw sr.error;
+  const im=new Map((ir.data||[]).map(x=>[x.id,x.symbol])),sm=new Map((sr.data||[]).map(x=>[x.id,x.name]));
+  const groups=new Map();
+  data.forEach(r=>{const k=r.instrument_id+'|'+r.strategy_template_id+'|'+(r.timeframe||'');if(!groups.has(k))groups.set(k,{instrumentId:r.instrument_id,strategyId:r.strategy_template_id,tf:r.timeframe,splits:{}});groups.get(k).splits[r.split_name]=r;});
+  const candidates=[...groups.values()].map(g=>{
+   const v=g.splits.validation,t=g.splits.test,vm=v?.metrics||{},tm=t?.metrics||{};
+   const vt=Number(v?.trades_count??vm.trade_count??0),tt=Number(t?.trades_count??tm.trade_count??0);
+   const vret=Number(vm.total_return_pct),tret=Number(tm.total_return_pct),vpf=Number(vm.profit_factor),tpf=Number(tm.profit_factor);
+   const passed=!!v&&!!t&&Number.isFinite(vret)&&Number.isFinite(tret)&&vret>0&&tret>0&&vpf>1&&tpf>1&&vt>=20&&tt>=20;
+   return {...g,vt,tt,vret,tret,vpf,tpf,passed};
+  }).sort((a,b)=>Number(b.passed)-Number(a.passed)||Math.min(b.vret||-999,b.tret||-999)-Math.min(a.vret||-999,a.tret||-999));
+  const winners=candidates.filter(x=>x.passed);$('learnCandidates').textContent=String(winners.length);
+  rowsBox.innerHTML=candidates.slice(0,100).map(x=>'<tr><td>'+escapeHtml(im.get(x.instrumentId)||'—')+'</td><td>'+escapeHtml(sm.get(x.strategyId)||x.strategyId||'—')+'</td><td>'+fmtPct(x.vret)+'</td><td>'+fmtPct(x.tret)+'</td><td>'+((Number.isFinite(x.vpf)?x.vpf.toFixed(2):'—')+' / '+(Number.isFinite(x.tpf)?x.tpf.toFixed(2):'—'))+'</td><td>'+x.vt+' / '+x.tt+'</td><td class="'+(x.passed?'ok':'bad')+'">'+(x.passed?'Pasa filtro inicial':'Evidencia insuficiente')+'</td></tr>').join('')||'<tr><td colspan="7">Todavía no hay experimentos suficientes.</td></tr>';
+  const evaluated=(signalRes.data||[]).filter(x=>x.outcome&&x.outcome.status);$('learnSignals').textContent=String(evaluated.length);
+  const wins=evaluated.filter(x=>Number(x.outcome.pnl_pct)>0).length,losses=evaluated.filter(x=>Number(x.outcome.pnl_pct)<0).length,flat=evaluated.length-wins-losses;
+  memory.innerHTML=evaluated.length?'<p>Ganadoras observadas: <b class="ok">'+wins+'</b> · Perdedoras: <b class="bad">'+losses+'</b> · Neutras/expiradas: <b>'+flat+'</b></p><p class="muted small">Resultados registrados: '+evaluated.length+'. El evaluador histórico no incluye todavía spread, comisiones ni deslizamiento; las expiraciones se separan en el registro.</p>':'No hay señales evaluadas visibles para esta cuenta. Las señales pendientes no cuentan como aciertos ni pérdidas.';
+  const withBoth=candidates.filter(x=>Number.isFinite(x.vret)&&Number.isFinite(x.tret)).length;
+  diag.innerHTML='<p><b>'+data.length+'</b> filas de experimentos agrupadas en <b>'+groups.size+'</b> combinaciones de instrumento/estrategia/temporalidad.</p><p><b>'+withBoth+'</b> combinaciones tienen resultados tanto en validación como en prueba; <b>'+winners.length+'</b> superan los filtros preliminares de retorno positivo, profit factor &gt; 1 y al menos 20 operaciones en cada tramo.</p><p class="muted small">'+(winners.length?'Hay candidatas para nuevas pruebas, no para operar con dinero real.':'Conclusión actual: todavía no existe evidencia suficiente para seleccionar una estrategia como ganadora. Hay que ampliar muestras, incorporar costes reales y repetir pruebas walk-forward.')+'</p>';
+  $('learningStamp').textContent='Actualizado: '+new Date().toLocaleString('es-CU')+' · Fuente: Supabase · Solo datos guardados visibles para tu cuenta.';
+ }catch(e){
+  diag.textContent='No se pudo completar el análisis: '+(e.message||'error desconocido');
+  rowsBox.innerHTML='<tr><td colspan="7" class="bad">Comprueba la sesión y vuelve a actualizar.</td></tr>';
+  memory.textContent='No se pudo consultar la memoria de señales: '+(e.message||'error desconocido');
+ }
+}
+
 $('refreshResults').onclick=loadResults;
 init().catch(e=>{ $('connection').textContent='Error de conexión';msg('loginMsg',e.message,'bad')});
 
