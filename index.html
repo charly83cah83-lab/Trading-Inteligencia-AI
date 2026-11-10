@@ -166,7 +166,7 @@ async function loadResults(){
    supabaseClient.from('instruments').select('id,symbol').in('id',instrumentIds),
    supabaseClient.from('strategy_templates').select('id,name').in('id',strategyIds)
   ]);
-  if(ir.error)throw ir.error;if(sr.error)throw sr.error;if(signalRes.error)throw signalRes.error;if(signalRes2.error)throw signalRes2.error;
+  if(ir.error)throw ir.error;if(sr.error)throw sr.error;if(signalRes.error)throw signalRes.error;if(signalRes2.error)throw signalRes2.error;if(signalRes.error)throw signalRes.error;if(signalRes2.error)throw signalRes2.error;
   const instruments=new Map((ir.data||[]).map(x=>[x.id,x.symbol]));
   const templates=new Map((sr.data||[]).map(x=>[x.id,x.name]));
   renderDecisionSummary(data,instruments,templates);
@@ -224,6 +224,15 @@ function renderDecisionSummary(rows,instruments,templates){
 function fmtPct(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return'—';return Number(v).toFixed(2)+'%'}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
+
+function restoreLearningCache(){
+ try{
+  const x=JSON.parse(localStorage.getItem('tia_learning_snapshot')||'null');if(!x)return false;
+  $('learnExperiments').textContent=x.experiments;$('learnSignals').textContent=x.signals;$('learnCandidates').textContent=x.candidates;
+  $('learningDiagnosis').innerHTML=x.diagnosis;$('learningRows').innerHTML=x.rows;$('healthRows').innerHTML=x.health;$('signalMemory').innerHTML=x.memory;$('learningStamp').textContent=x.stamp+' · Copia local guardada '+new Date(x.savedAt).toLocaleString('es-CU');
+  return true;
+ }catch(_){return false;}
+}
 $('refreshLearning').onclick=loadLearning;
 async function loadLearning(){
  const rowsBox=$('learningRows'),diag=$('learningDiagnosis'),memory=$('signalMemory');
@@ -268,8 +277,11 @@ async function loadLearning(){
   const withBoth=candidates.filter(x=>Number.isFinite(x.vret)&&Number.isFinite(x.tret)).length;
   diag.innerHTML='<p><b>'+data.length+'</b> filas de experimentos agrupadas en <b>'+groups.size+'</b> combinaciones de instrumento/estrategia/temporalidad.</p><p><b>'+withBoth+'</b> combinaciones tienen resultados tanto en validación como en prueba; <b>'+winners.length+'</b> superan los filtros preliminares de retorno positivo, profit factor &gt; 1 y al menos 20 operaciones en cada tramo.</p><p class="muted small">'+(winners.length?'Hay candidatas para nuevas pruebas, no para operar con dinero real.':'Conclusión actual: todavía no existe evidencia suficiente para seleccionar una estrategia como ganadora. Hay que ampliar muestras, incorporar costes reales y repetir pruebas walk-forward.')+'</p>';
   $('learningStamp').textContent='Actualizado: '+new Date().toLocaleString('es-CU')+' · Fuente: Supabase · Solo datos guardados visibles para tu cuenta.';
+  localStorage.setItem('tia_learning_snapshot',JSON.stringify({experiments:$('learnExperiments').textContent,signals:$('learnSignals').textContent,candidates:$('learnCandidates').textContent,diagnosis:diag.innerHTML,rows:rowsBox.innerHTML,health:$('healthRows').innerHTML,memory:memory.innerHTML,stamp:$('learningStamp').textContent,savedAt:new Date().toISOString()}));
  }catch(e){
-  diag.textContent='No se pudo completar el análisis: '+(e.message||'error desconocido');
+  const restored=restoreLearningCache();
+  if(restored){$('learningStamp').textContent+=' · Modo sin conexión: copia local.';}
+  diag.textContent=restored?diag.textContent:('No se pudo completar el análisis: '+(e.message||'error desconocido'));
   rowsBox.innerHTML='<tr><td colspan="7" class="bad">Comprueba la sesión y vuelve a actualizar.</td></tr>';
   memory.textContent='No se pudo consultar la memoria de señales: '+(e.message||'error desconocido');
  }
