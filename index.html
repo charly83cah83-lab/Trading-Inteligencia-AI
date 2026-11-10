@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#090d1b">
+<link rel="manifest" href="./manifest.webmanifest"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Trading Inteligencia AI</title>
 <style>
 :root{color-scheme:dark;--bg:#090d1b;--panel:#121a30;--panel2:#18223d;--line:#293653;--txt:#edf3ff;--muted:#9eacc8;--cyan:#55e4ef;--violet:#9a7cff;--green:#53d7a0;--red:#ff728e}
@@ -14,7 +15,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 </head>
 <body>
 <div class="wrap">
-<header class="top"><div class="brand"><div class="logo">TA</div><div><h1>TRADING INTELIGENCIA AI</h1><p>Centro de investigación cuantitativa · versión inicial</p></div></div><div class="chips"><span class="badge">MODO SIMULACIÓN</span><span class="chip" id="connection">Conectando…</span></div></header>
+<header class="top"><div class="brand"><div class="logo">TA</div><div><h1>TRADING INTELIGENCIA AI</h1><p>Centro de investigación cuantitativa · versión inicial</p></div></div><div class="chips"><span class="badge">MODO SIMULACIÓN</span><span class="chip" id="connection">Conectando…</span><span class="chip" id="networkState">Red: comprobando…</span></div></header>
 <section id="login" class="card login">
 <h2>Acceso seguro</h2><p class="muted">Inicia sesión con el usuario creado en Supabase Authentication.</p>
 <div class="field"><label>Correo electrónico</label><input id="email" type="email" autocomplete="username" placeholder="tu correo"></div>
@@ -28,7 +29,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <div class="card span4"><div class="muted small">Estado del sistema</div><div class="stat ok">Investigación activa</div><p class="muted small">Sin órdenes reales ni conexión a broker.</p></div>
 <div class="card span4"><div class="muted small">Instrumentos iniciales</div><div class="stat">10</div><p class="muted small">Cripto, Forex, metales, energía e índices.</p></div>
 <div class="card span4"><div class="muted small">Estrategias disponibles</div><div class="stat" id="strategyCount">—</div><p class="muted small">Plantillas experimentales.</p></div>
-<div class="card span12"><h2>Universo de análisis</h2><div class="chips"><span class="chip">BTC/USD</span><span class="chip">ETH/USD</span><span class="chip">EUR/USD</span><span class="chip">GBP/USD</span><span class="chip">USD/JPY</span><span class="chip">XAU/USD · Oro</span><span class="chip">XAG/USD · Plata</span><span class="chip">WTI/USD · Petróleo</span><span class="chip">SPX500</span><span class="chip">NAS100</span></div></div>
+<div class="card span12" id="collectorPanel"><h2>Motor automático de mercado · servicio en la nube</h2><p class="muted small">El colector se ejecuta en Supabase aunque cierres esta página o el teléfono no tenga conexión. La captura depende de Internet y de la disponibilidad/cuota del proveedor.</p><div class="grid"><div class="span4"><div class="muted small">Última captura</div><div class="stat" id="collectorLast">—</div></div><div class="span4"><div class="muted small">Capturas correctas · 24 h</div><div class="stat" id="collectorOk">—</div></div><div class="span4"><div class="muted small">Velas históricas guardadas</div><div class="stat" id="collectorBars">—</div></div></div><p id="collectorDetail" class="small muted">Esperando lectura del servicio…</p><div class="notice">Modo sin conexión: la aplicación puede abrir su estructura y mostrar la última información guardada en este dispositivo. No puede recibir precios nuevos ni descargar información de Internet cuando no hay conexión.</div></div><div class="card span12"><h2>Universo de análisis</h2><div class="chips"><span class="chip">BTC/USD</span><span class="chip">ETH/USD</span><span class="chip">EUR/USD</span><span class="chip">GBP/USD</span><span class="chip">USD/JPY</span><span class="chip">XAU/USD · Oro</span><span class="chip">XAG/USD · Plata</span><span class="chip">WTI/USD · Petróleo</span><span class="chip">SPX500</span><span class="chip">NAS100</span></div></div>
 <div class="card span12" id="liveDesk">
 <h2>Asesor cuantitativo · Análisis de mercado en tiempo real</h2>
 <p class="muted small">Consulta datos recientes de Twelve Data y calcula una lectura experimental. No ejecuta órdenes ni garantiza resultados.</p>
@@ -64,6 +65,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 </div>
 <div id="results" class="tabview hidden"><div class="card"><h2>Resultados de experimentos</h2><p class="muted small">Los resultados se muestran después de ejecutar un backtest.</p><div class="actions"><button class="ghost" id="refreshResults">Actualizar</button></div><div id="decisionSummary" class="section"><div class="notice">Preparando una lectura sencilla de los resultados…</div></div><div class="tablewrap section"><table><thead><tr><th>Fecha</th><th>Instrumento</th><th>Estrategia</th><th>Retorno</th><th>Drawdown</th><th>Acierto</th><th>Operaciones</th></tr></thead><tbody id="resultsBody"><tr><td colspan="7" class="muted">Sin resultados cargados.</td></tr></tbody></table></div><p id="resultsMsg" class="small muted"></p></div></div>
 </main>
+<div id="offlineBanner" class="notice hidden">Estás sin conexión. Se muestran datos guardados; la captura en la nube continúa si el servidor y el proveedor tienen Internet.</div>
 <footer>Trading Inteligencia AI · Sin promesas de rentabilidad · Simulación antes de cualquier riesgo real</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -106,7 +108,7 @@ $('liveAnalyze').onclick=analyzeLiveMarket;
 
 let strategies=[];
 function msg(id,text,kind='muted'){const el=$(id);el.textContent=text;el.className='small '+kind}
-function showApp(user){$('login').classList.toggle('hidden',!!user);$('app').classList.toggle('hidden',!user);$('connection').textContent=user?'Sesión segura':'Sin sesión';if(user){loadStrategies();}}
+function showApp(user){$('login').classList.toggle('hidden',!!user);$('app').classList.toggle('hidden',!user);$('connection').textContent=user?'Sesión segura':'Sin sesión';if(user){loadStrategies();loadCollectorStatus();}}
 async function init(){const {data:{session}}=await supabaseClient.auth.getSession();showApp(session?.user);$('loginBtn').onclick=login;$('signupBtn').onclick=signup;$('logout').onclick=async()=>{await supabaseClient.auth.signOut();showApp(null)};supabaseClient.auth.onAuthStateChange((_e,s)=>showApp(s?.user));}
 function credentialsValid(){const email=$('email').value.trim();const password=$('password').value;if(!email||!password){msg('loginMsg','Escribe tu correo y una contraseña.','bad');return false}if(password.length<6){msg('loginMsg','La contraseña debe tener al menos 6 caracteres.','bad');return false}return true}
 async function signup(){if(!credentialsValid())return;$('signupBtn').disabled=true;$('loginBtn').disabled=true;msg('loginMsg','Creando tu cuenta…');try{const {data,error}=await supabaseClient.auth.signUp({email:$('email').value.trim(),password:$('password').value,options:{emailRedirectTo:'https://charly83cah83-lab.github.io/Trading-Inteligencia-AI/'}});if(error)throw error;if(data.session){showApp(data.user);msg('loginMsg','Cuenta creada. Ya puedes entrar.','ok')}else{msg('loginMsg','Solicitud de registro enviada. Revisa tu correo y confirma la cuenta; después vuelve aquí y pulsa Entrar.','ok')}}catch(e){msg('loginMsg',e.message||'No se pudo crear la cuenta.','bad')}finally{$('signupBtn').disabled=false;$('loginBtn').disabled=false}}
@@ -264,6 +266,45 @@ async function loadLearning(){
 
 $('refreshResults').onclick=loadResults;
 init().catch(e=>{ $('connection').textContent='Error de conexión';msg('loginMsg',e.message,'bad')});
+
+function updateNetworkState(){
+ const online=navigator.onLine;
+ $('networkState').textContent=online?'Red: conectada':'Red: sin conexión';
+ $('networkState').className='chip '+(online?'ok':'bad');
+ $('offlineBanner').classList.toggle('hidden',online);
+ if(!online)loadCachedCollectorStatus();
+}
+window.addEventListener('online',updateNetworkState);window.addEventListener('offline',updateNetworkState);
+async function loadCollectorStatus(){
+ const box=$('collectorDetail');
+ if(!navigator.onLine){loadCachedCollectorStatus();return;}
+ try{
+  const since=new Date(Date.now()-24*60*60*1000).toISOString();
+  const [recent,count,candles]=await Promise.all([
+   supabaseClient.from('market_collector_runs').select('symbol,status,bars_saved,completed_at,error_message').order('completed_at',{ascending:false}).limit(1),
+   supabaseClient.from('market_collector_runs').select('id',{count:'exact',head:true}).eq('status','ok').gte('completed_at',since),
+   supabaseClient.from('market_candles').select('id',{count:'exact',head:true})
+  ]);
+  if(recent.error)throw recent.error;if(count.error)throw count.error;if(candles.error)throw candles.error;
+  const last=recent.data?.[0];
+  const snapshot={last:last||null,ok:count.count??0,bars:candles.count??0,at:new Date().toISOString()};
+  localStorage.setItem('tia_collector_snapshot',JSON.stringify(snapshot));
+  renderCollectorSnapshot(snapshot);
+ }catch(e){box.textContent='No se pudo consultar el estado del colector: '+(e.message||'error');loadCachedCollectorStatus();}
+}
+function renderCollectorSnapshot(x){
+ $('collectorLast').textContent=x.last?new Date(x.last.completed_at).toLocaleTimeString('es-CU',{hour:'2-digit',minute:'2-digit'}):'Sin capturas';
+ $('collectorOk').textContent=String(x.ok??0);
+ $('collectorBars').textContent=String(x.bars??0);
+ if(x.last){$('collectorDetail').textContent='Último instrumento: '+x.last.symbol+' · '+x.last.status+' · '+(x.last.bars_saved||0)+' velas · '+new Date(x.last.completed_at).toLocaleString('es-CU')+(x.last.error_message?' · '+x.last.error_message:'');}
+ else $('collectorDetail').textContent='Todavía no hay capturas registradas.';
+}
+function loadCachedCollectorStatus(){
+ try{const x=JSON.parse(localStorage.getItem('tia_collector_snapshot')||'null');if(x){renderCollectorSnapshot(x);$('collectorDetail').textContent+=' · Copia local del '+new Date(x.at).toLocaleString('es-CU');}else $('collectorDetail').textContent='No hay una copia local previa. Conéctate para cargar el estado.';}catch(_){}
+}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+updateNetworkState();
+
 
 async function evaluateSavedSignals(){
  const btn=$('evaluateSignals'),out=$('evaluationOutput');btn.disabled=true;out.textContent='Evaluando señales con datos posteriores del mercado…';
