@@ -1,4 +1,4 @@
-const CACHE='trading-ai-shell-v1';
+const CACHE='trading-ai-shell-v2';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil((async()=>{const c=await caches.open(CACHE);await c.addAll(SHELL);try{const q=new Request('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',{mode:'no-cors'});const r=await fetch(q);await c.put(q,r);}catch(_){}self.skipWaiting();})());});
 self.addEventListener('activate',event=>{event.waitUntil((async()=>{for(const k of await caches.keys())if(k!==CACHE)await caches.delete(k);await self.clients.claim();})());});
