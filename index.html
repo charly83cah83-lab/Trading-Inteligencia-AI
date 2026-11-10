@@ -39,6 +39,10 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 </div>
 <div id="liveOutput" class="section"><div class="notice">Pulsa «Analizar mercado ahora» para consultar el proveedor. La señal solo será orientativa y experimental.</div></div>
 <p id="liveStamp" class="small muted" aria-live="polite"></p>
+<div class="section">
+ <button id="evaluateSignals" type="button">Evaluar señales anteriores</button>
+ <div id="evaluationOutput" class="notice section">El evaluador comprobará las señales guardadas contra velas posteriores. Solo registra resultados históricos; no ejecuta operaciones.</div>
+</div>
 </div>
 <div class="card span12"><div class="notice">Esta aplicación está en fase de pruebas. Los resultados históricos no garantizan beneficios futuros. No se ejecutan operaciones reales y no se promete una tasa de acierto determinada. Antes de usar dinero real habrá que validar datos, costes, riesgo y disponibilidad legal del broker para residentes en Cuba.</div></div>
 </div></div>
@@ -51,7 +55,15 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 </main>
 <footer>Trading Inteligencia AI · Sin promesas de rentabilidad · Simulación antes de cualquier riesgo real</footer>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+
+<script>
+const SUPABASE_URL='https://ijdftqcwyonjmitceugh.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZGZ0cWN3eW9uam1pdGNldWdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMjgwMDQsImV4cCI6MjEwOTgwNDAwNH0.7ahoM0f7rsQGlvhGF2LBifpmQM4ZrBKnPmetWdz5mxw';
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const $=id=>document.getElementById(id);
+
 async function analyzeLiveMarket(){
  const btn=$('liveAnalyze'), out=$('liveOutput'), stamp=$('liveStamp');
  btn.disabled=true; out.innerHTML='<p class="muted">Consultando datos de mercado…</p>'; stamp.textContent='';
@@ -80,12 +92,8 @@ async function analyzeLiveMarket(){
 }
 $('liveAnalyze').onclick=analyzeLiveMarket;
 
-</script>
-<script>
-const SUPABASE_URL='https://ijdftqcwyonjmitceugh.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZGZ0cWN3eW9uam1pdGNldWdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMjgwMDQsImV4cCI6MjEwOTgwNDAwNH0.7ahoM0f7rsQGlvhGF2LBifpmQM4ZrBKnPmetWdz5mxw';
-const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-const $=id=>document.getElementById(id);
+
+
 let strategies=[];
 function msg(id,text,kind='muted'){const el=$(id);el.textContent=text;el.className='small '+kind}
 function showApp(user){$('login').classList.toggle('hidden',!!user);$('app').classList.toggle('hidden',!user);$('connection').textContent=user?'Sesión segura':'Sin sesión';if(user){loadStrategies();}}
@@ -204,5 +212,18 @@ function fmtPct(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))retur
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 $('refreshResults').onclick=loadResults;
 init().catch(e=>{ $('connection').textContent='Error de conexión';msg('loginMsg',e.message,'bad')});
+
+async function evaluateSavedSignals(){
+ const btn=$('evaluateSignals'),out=$('evaluationOutput');btn.disabled=true;out.textContent='Evaluando señales con datos posteriores del mercado…';
+ try{
+  const {data:{session}}=await supabaseClient.auth.getSession();
+  if(!session?.access_token)throw new Error('Tu sesión ha caducado. Vuelve a entrar.');
+  const res=await fetch(SUPABASE_URL+'/functions/v1/evaluate-signals',{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},body:'{}'});
+  const data=await res.json();if(!res.ok)throw new Error(data.error||data.details||('Error HTTP '+res.status));
+  const rows=(data.results||[]).map(r=>'<li>'+escapeHtml(r.status)+' · '+escapeHtml(r.id||'')+(r.pnl_pct!==undefined?' · '+Number(r.pnl_pct).toFixed(3)+'%':'')+(r.reason?' · '+escapeHtml(r.reason):'')+'</li>').join('');
+  out.innerHTML='<b>Evaluación terminada</b><p>Señales cerradas: '+Number(data.evaluated||0)+' · Pendientes/esperando: '+Number(data.pending||0)+'</p>'+(rows?'<ul>'+rows+'</ul>':'<p>No hay señales nuevas para evaluar.</p>')+'<p class="small muted">'+escapeHtml(data.note||data.message||'Evaluación histórica completada.')+'</p>';
+ }catch(e){out.textContent=e.message||'No se pudo evaluar.';}finally{btn.disabled=false;}
+}
+$('evaluateSignals').onclick=evaluateSavedSignals;
 </script>
 </body></html>
