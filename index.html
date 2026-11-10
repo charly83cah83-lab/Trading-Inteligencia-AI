@@ -61,6 +61,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
   <div class="card span12"><h2>Diagnóstico del conocimiento acumulado</h2><div id="learningDiagnosis" class="notice">Consultando historial…</div></div>
   <div class="card span12"><h2>Comparación de estrategias</h2><p class="muted small">Se exige evidencia en validación y prueba. El porcentaje de aciertos por sí solo no determina el ranking.</p><div class="tablewrap"><table><thead><tr><th>Instrumento</th><th>Estrategia</th><th>Validación</th><th>Prueba</th><th>Factor ganancia V/P</th><th>Operaciones V/P</th><th>Evaluación</th></tr></thead><tbody id="learningRows"><tr><td colspan="7">Cargando…</td></tr></tbody></table></div></div>
   <div class="card span12"><h2>Memoria de señales</h2><div id="signalMemory" class="notice">Consultando señales evaluadas…</div></div>
+  <div class="card span12"><h2>Salud estadística de estrategias · actualización automática</h2><p class="muted small">Estado calculado por el servicio cuantitativo en la nube. «Sana» significa candidata a más pruebas, no autorización para operar.</p><div class="tablewrap"><table><thead><tr><th>Instrumento</th><th>Estrategia</th><th>Estado</th><th>Validación</th><th>Prueba</th><th>Operaciones V/P</th><th>Actualizado</th></tr></thead><tbody id="healthRows"><tr><td colspan="7">Cargando salud de estrategias…</td></tr></tbody></table></div></div>
  </div>
 </div>
 <div id="results" class="tabview hidden"><div class="card"><h2>Resultados de experimentos</h2><p class="muted small">Los resultados se muestran después de ejecutar un backtest.</p><div class="actions"><button class="ghost" id="refreshResults">Actualizar</button></div><div id="decisionSummary" class="section"><div class="notice">Preparando una lectura sencilla de los resultados…</div></div><div class="tablewrap section"><table><thead><tr><th>Fecha</th><th>Instrumento</th><th>Estrategia</th><th>Retorno</th><th>Drawdown</th><th>Acierto</th><th>Operaciones</th></tr></thead><tbody id="resultsBody"><tr><td colspan="7" class="muted">Sin resultados cargados.</td></tr></tbody></table></div><p id="resultsMsg" class="small muted"></p></div></div>
@@ -165,7 +166,7 @@ async function loadResults(){
    supabaseClient.from('instruments').select('id,symbol').in('id',instrumentIds),
    supabaseClient.from('strategy_templates').select('id,name').in('id',strategyIds)
   ]);
-  if(ir.error)throw ir.error;if(sr.error)throw sr.error;
+  if(ir.error)throw ir.error;if(sr.error)throw sr.error;if(signalRes.error)throw signalRes.error;if(signalRes2.error)throw signalRes2.error;
   const instruments=new Map((ir.data||[]).map(x=>[x.id,x.symbol]));
   const templates=new Map((sr.data||[]).map(x=>[x.id,x.name]));
   renderDecisionSummary(data,instruments,templates);
@@ -233,10 +234,11 @@ async function loadLearning(){
   if(error)throw error;
   const data=exp||[];$('learnExperiments').textContent=String(data.length);
   const instrumentIds=[...new Set(data.map(x=>x.instrument_id).filter(Boolean))],strategyIds=[...new Set(data.map(x=>x.strategy_template_id).filter(Boolean))];
-  const [ir,sr,signalRes]=await Promise.all([
+  const [ir,sr,signalRes,signalRes2]=await Promise.all([
    instrumentIds.length?supabaseClient.from('instruments').select('id,symbol').in('id',instrumentIds):Promise.resolve({data:[],error:null}),
    strategyIds.length?supabaseClient.from('strategy_templates').select('id,name').in('id',strategyIds):Promise.resolve({data:[],error:null}),
-   supabaseClient.from('signals').select('id,decision,side,generated_at,outcome').order('generated_at',{ascending:false}).limit(1000)
+   supabaseClient.from('signals').select('id,decision,side,generated_at,outcome').order('generated_at',{ascending:false}).limit(1000),
+   supabaseClient.from('strategy_health').select('owner_id,strategy_template_id,instrument_id,timeframe,rolling_metrics,health_state,updated_at,consecutive_bad_windows').order('updated_at',{ascending:false}).limit(500)
   ]);
   if(ir.error)throw ir.error;if(sr.error)throw sr.error;
   const im=new Map((ir.data||[]).map(x=>[x.id,x.symbol])),sm=new Map((sr.data||[]).map(x=>[x.id,x.name]));
@@ -251,6 +253,15 @@ async function loadLearning(){
   }).sort((a,b)=>Number(b.passed)-Number(a.passed)||Math.min(b.vret||-999,b.tret||-999)-Math.min(a.vret||-999,a.tret||-999));
   const winners=candidates.filter(x=>x.passed);$('learnCandidates').textContent=String(winners.length);
   rowsBox.innerHTML=candidates.slice(0,100).map(x=>'<tr><td>'+escapeHtml(im.get(x.instrumentId)||'—')+'</td><td>'+escapeHtml(sm.get(x.strategyId)||x.strategyId||'—')+'</td><td>'+fmtPct(x.vret)+'</td><td>'+fmtPct(x.tret)+'</td><td>'+((Number.isFinite(x.vpf)?x.vpf.toFixed(2):'—')+' / '+(Number.isFinite(x.tpf)?x.tpf.toFixed(2):'—'))+'</td><td>'+x.vt+' / '+x.tt+'</td><td class="'+(x.passed?'ok':'bad')+'">'+(x.passed?'Pasa filtro inicial':'Evidencia insuficiente')+'</td></tr>').join('')||'<tr><td colspan="7">Todavía no hay experimentos suficientes.</td></tr>';
+
+  const healthRows=(signalRes2.data||[]).map(x=>{
+   const m=x.rolling_metrics||{},v=m.validation||{},t=m.test||{};
+   const state=x.health_state==='healthy'?'Candidata a más pruebas':x.health_state==='degraded'?'Rendimiento débil':'Evidencia insuficiente';
+   const cls=x.health_state==='healthy'?'ok':x.health_state==='degraded'?'bad':'muted';
+   return '<tr><td>'+escapeHtml(im.get(x.instrument_id)||'—')+'</td><td>'+escapeHtml(sm.get(x.strategy_template_id)||x.strategy_template_id||'—')+'</td><td class="'+cls+'">'+state+'</td><td>'+fmtPct(v.return_pct)+'</td><td>'+fmtPct(t.return_pct)+'</td><td>'+Number(v.trades||0)+' / '+Number(t.trades||0)+'</td><td>'+escapeHtml((x.updated_at||'').slice(0,16).replace('T',' '))+'</td></tr>';
+  }).join('');
+  $('healthRows').innerHTML=healthRows||'<tr><td colspan="7">El servicio todavía no ha generado evaluaciones.</td></tr>';
+
   const evaluated=(signalRes.data||[]).filter(x=>x.outcome&&x.outcome.status);$('learnSignals').textContent=String(evaluated.length);
   const wins=evaluated.filter(x=>Number(x.outcome.pnl_pct)>0).length,losses=evaluated.filter(x=>Number(x.outcome.pnl_pct)<0).length,flat=evaluated.length-wins-losses;
   memory.innerHTML=evaluated.length?'<p>Ganadoras observadas: <b class="ok">'+wins+'</b> · Perdedoras: <b class="bad">'+losses+'</b> · Neutras/expiradas: <b>'+flat+'</b></p><p class="muted small">Resultados registrados: '+evaluated.length+'. El evaluador histórico no incluye todavía spread, comisiones ni deslizamiento; las expiraciones se separan en el registro.</p>':'No hay señales evaluadas visibles para esta cuenta. Las señales pendientes no cuentan como aciertos ni pérdidas.';
