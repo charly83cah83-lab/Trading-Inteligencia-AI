@@ -89,8 +89,44 @@ $('noStrategies').onclick=()=>document.querySelectorAll('#strategies input').for
 $('reloadStrategies').onclick=loadStrategies;
 async function runExperiment(){const symbols=[...document.querySelectorAll('#symbols input:checked')].map(x=>x.value);const selected=[...document.querySelectorAll('#strategies input:checked')].map(x=>x.value);if(!symbols.length||symbols.length>4){msg('runMsg','Selecciona entre 1 y 4 instrumentos.','bad');return}if(!selected.length||selected.length>24){msg('runMsg','Selecciona entre 1 y 24 estrategias.','bad');return}const {data:{session}}=await supabaseClient.auth.getSession();if(!session){msg('runMsg','Tu sesión expiró. Vuelve a entrar.','bad');return}$('runBtn').disabled=true;msg('runMsg','Ejecutando análisis histórico. Puede tardar…');try{const r=await fetch(SUPABASE_URL+'/functions/v1/backtest-runner',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({symbols,strategies:selected,interval:$('interval').value,cost_bps:Number($('cost').value)||0})});const body=await r.json().catch(()=>({}));if(!r.ok)throw new Error(body.error||body.message||('Error HTTP '+r.status));msg('runMsg','Experimento terminado. Revisa la pestaña Resultados.','ok');await loadResults()}catch(e){msg('runMsg',e.message,'bad')}finally{$('runBtn').disabled=false}}
 $('runBtn').onclick=runExperiment;
-async function loadResults(){const body=$('resultsBody');body.innerHTML='<tr><td colspan="7">Cargando…</td></tr>';const {data,error}=await supabaseClient.from('experiment_results').select('*').order('created_at',{ascending:false}).limit(100);if(error){body.innerHTML='<tr><td colspan="7">No se pudieron leer los resultados: '+escapeHtml(error.message)+'</td></tr>';return}if(!data?.length){body.innerHTML='<tr><td colspan="7" class="muted">Todavía no hay resultados.</td></tr>';return}body.innerHTML=data.map(x=>'<tr><td>'+escapeHtml((x.created_at||'').slice(0,16).replace('T',' '))+'</td><td>'+escapeHtml(x.symbol||x.instrument_id||'—')+'</td><td>'+escapeHtml(x.strategy_id||'—')+'</td><td>'+fmt(x.total_return??x.return_pct)+'</td><td>'+fmt(x.max_drawdown??x.drawdown)+'</td><td>'+fmt(x.win_rate)+'</td><td>'+escapeHtml(String(x.trade_count??'—'))+'</td></tr>').join('')}
-function fmt(v){if(v===null||v===undefined)return'—';return (Number(v)*((Math.abs(Number(v))<=1)?100:1)).toFixed(2)+'%'}
+async function loadResults(){
+ const body=$('resultsBody');
+ body.innerHTML='<tr><td colspan="7">Cargando resultados…</td></tr>';
+ msg('resultsMsg','Consultando experimentos guardados…');
+ try{
+  const {data,error}=await supabaseClient.from('experiment_results')
+   .select('id,batch_id,strategy_template_id,instrument_id,split_name,metrics,trades_count,created_at')
+   .order('created_at',{ascending:false}).limit(300);
+  if(error)throw error;
+  if(!data?.length){body.innerHTML='<tr><td colspan="7" class="muted">Todavía no hay resultados.</td></tr>';msg('resultsMsg','');return;}
+  const instrumentIds=[...new Set(data.map(x=>x.instrument_id).filter(Boolean))];
+  const strategyIds=[...new Set(data.map(x=>x.strategy_template_id).filter(Boolean))];
+  const [ir,sr]=await Promise.all([
+   supabaseClient.from('instruments').select('id,symbol').in('id',instrumentIds),
+   supabaseClient.from('strategy_templates').select('id,name').in('id',strategyIds)
+  ]);
+  if(ir.error)throw ir.error;if(sr.error)throw sr.error;
+  const instruments=new Map((ir.data||[]).map(x=>[x.id,x.symbol]));
+  const templates=new Map((sr.data||[]).map(x=>[x.id,x.name]));
+  body.innerHTML=data.map(x=>{
+   const m=x.metrics||{};
+   const ret=m.total_return_pct;
+   const dd=m.max_drawdown_pct;
+   const win=m.win_rate_pct;
+   const trades=x.trades_count??m.trade_count??'—';
+   const split=({train:'Entrenamiento',validation:'Validación',test:'Prueba',walk_forward:'Walk-forward',paper:'Simulación'}[x.split_name]||x.split_name||'—');
+   return '<tr><td>'+escapeHtml((x.created_at||'').slice(0,16).replace('T',' '))+'</td>'+
+    '<td>'+escapeHtml(instruments.get(x.instrument_id)||'Instrumento no identificado')+'</td>'+
+    '<td>'+escapeHtml(templates.get(x.strategy_template_id)||x.strategy_template_id||'—')+'<br><span class="muted small">'+escapeHtml(split)+'</span></td>'+
+    '<td>'+fmtPct(ret)+'</td><td>'+fmtPct(dd)+'</td><td>'+fmtPct(win)+'</td><td>'+escapeHtml(String(trades))+'</td></tr>';
+  }).join('');
+  msg('resultsMsg',data.length+' registros cargados. Cada estrategia se presenta por separado para entrenamiento, validación y prueba.','ok');
+ }catch(e){
+  body.innerHTML='<tr><td colspan="7" class="bad">No se pudieron cargar los resultados: '+escapeHtml(e.message||'Error desconocido')+'</td></tr>';
+  msg('resultsMsg','Comprueba la conexión y pulsa Actualizar.','bad');
+ }
+}
+function fmtPct(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return'—';return Number(v).toFixed(2)+'%'}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 $('refreshResults').onclick=loadResults;
 init().catch(e=>{ $('connection').textContent='Error de conexión';msg('loginMsg',e.message,'bad')});
