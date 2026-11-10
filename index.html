@@ -71,9 +71,9 @@ async function analyzeLiveMarket(){
   const decision=a.decision==='potential_entry'&&valid&&rr>=1.5?('POSIBLE '+side):'NO OPERAR';
   const tone=decision==='NO OPERAR'?'bad':'ok';
   const fmt=v=>Number.isFinite(Number(v))?Number(v).toPrecision(8):'—';
-  const pct=v=>Number.isFinite(Number(v))?(Number(v)*100).toFixed(1)+'%':'—';
+  const pct=v=>v===null||v===undefined?'No calibrada':(Number.isFinite(Number(v))?(Number(v)*100).toFixed(1)+'%':'—');
   out.innerHTML='<div class="card"><div class="muted small">LECTURA EXPERIMENTAL · '+escapeHtml(symbol)+' · '+escapeHtml(interval)+'</div><h2 class="'+tone+'">'+decision+'</h2><div class="grid"><div class="span4"><div class="muted small">Precio observado</div><div class="stat">'+fmt(a.price)+'</div></div><div class="span4"><div class="muted small">Stop Loss teórico</div><div class="stat">'+fmt(a.stop_loss)+'</div></div><div class="span4"><div class="muted small">Take Profit teórico</div><div class="stat">'+fmt(a.take_profit)+'</div></div></div><p>Relación riesgo/beneficio teórica: <b>'+(rr===null?'—':rr.toFixed(2)+' : 1')+'</b> · Confianza interna del modelo: <b>'+pct(a.confidence)+'</b></p><p>RSI: '+fmt(a.rsi)+' · EMA20: '+fmt(a.ema20)+' · EMA50: '+fmt(a.ema50)+' · MACD: '+fmt(a.macd)+' · ATR: '+fmt(a.atr)+'</p><p class="muted small">'+escapeHtml(a.note||'Señal algorítmica experimental.')+'</p><div class="notice">El Stop Loss y Take Profit son estimaciones del modelo, no órdenes colocadas. No se calcula tamaño de posición porque faltan especificaciones contractuales y valor por punto de cada instrumento. La confianza no es una probabilidad calibrada de ganar.</div></div>';
-  stamp.textContent='Proveedor: '+(payload.provider||'—')+' · Datos UTC: '+(payload.updated_at||'sin marca temporal')+'. Análisis puntual; no es vigilancia continua.';
+  stamp.textContent='Proveedor: '+(payload.provider||'—')+' · Datos UTC: '+(payload.updated_at||'sin marca temporal')+' · Historial: '+(payload.persistence?.saved?'señal guardada':('no guardada ('+(payload.persistence?.reason||'sin confirmación')+')'))+'. Análisis puntual; no es vigilancia continua.';
  }catch(e){
   out.innerHTML='<div class="notice">'+escapeHtml(e.message||'No se pudo completar el análisis.')+'</div>';
  }finally{btn.disabled=false;}
