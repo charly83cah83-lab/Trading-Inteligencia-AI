@@ -326,17 +326,23 @@ async function loadCollectorStatus(){
  if(!navigator.onLine){loadCachedCollectorStatus();return;}
  try{
   const since=new Date(Date.now()-24*60*60*1000).toISOString();
-  const [recent,count,candles,coverage]=await Promise.all([
+  const [recent,count,candles,runs,providerCoverage,providers,instruments]=await Promise.all([
    supabaseClient.from('market_collector_runs').select('symbol,status,bars_saved,completed_at,error_message').order('completed_at',{ascending:false}).limit(1),
    supabaseClient.from('market_collector_runs').select('id',{count:'exact',head:true}).eq('status','ok').gte('completed_at',since),
    supabaseClient.from('market_candles').select('id',{count:'exact',head:true}),
-   supabaseClient.from('market_collector_runs').select('symbol,status,bars_saved,completed_at,error_message').order('completed_at',{ascending:false}).limit(100)
+   supabaseClient.from('market_collector_runs').select('symbol,status,bars_saved,completed_at,error_message').order('completed_at',{ascending:false}).limit(100),
+   supabaseClient.from('provider_market_coverage').select('provider_id,instrument_id,provider_symbol,coverage_status,last_checked_at,last_success_at,last_error,metadata'),
+   supabaseClient.from('market_data_providers').select('id,display_name,connection_status,commercial_display_status,is_enabled'),
+   supabaseClient.from('instruments').select('id,symbol')
   ]);
-  if(recent.error)throw recent.error;if(count.error)throw count.error;if(candles.error)throw candles.error;if(coverage.error)throw coverage.error;
+  for(const result of [recent,count,candles,runs,providerCoverage,providers,instruments])if(result.error)throw result.error;
   const last=recent.data?.[0];
   const latestBySymbol={};
-  (coverage.data||[]).forEach(row=>{if(!latestBySymbol[row.symbol])latestBySymbol[row.symbol]=row;});
-  const snapshot={last:last||null,ok:count.count??0,bars:candles.count??0,coverage:Object.values(latestBySymbol),at:new Date().toISOString()};
+  (runs.data||[]).forEach(row=>{if(!latestBySymbol[row.symbol])latestBySymbol[row.symbol]=row;});
+  const symbolById=Object.fromEntries((instruments.data||[]).map(x=>[x.id,x.symbol]));
+  const providerById=Object.fromEntries((providers.data||[]).map(x=>[x.id,x]));
+  const providerRows=(providerCoverage.data||[]).map(row=>({...row,symbol:symbolById[row.instrument_id]||row.provider_symbol,provider:providerById[row.provider_id]||null}));
+  const snapshot={last:last||null,ok:count.count??0,bars:candles.count??0,coverage:Object.values(latestBySymbol),providerCoverage:providerRows,providers:providers.data||[],at:new Date().toISOString()};
   localStorage.setItem('tia_collector_snapshot',JSON.stringify(snapshot));
   renderCollectorSnapshot(snapshot);
  }catch(e){box.textContent='No se pudo consultar el estado del colector: '+(e.message||'error');loadCachedCollectorStatus();}
@@ -348,7 +354,18 @@ function renderCollectorSnapshot(x){
  if(x.last){$('collectorDetail').textContent='Último instrumento: '+x.last.symbol+' · '+x.last.status+' · '+(x.last.bars_saved||0)+' velas · '+new Date(x.last.completed_at).toLocaleString('es-CU')+(x.last.error_message?' · '+x.last.error_message:'');}
  else $('collectorDetail').textContent='Todavía no hay capturas registradas.';
  const list=$('marketCoverage');
- if(list){list.innerHTML='';const rows=x.coverage||[];if(!rows.length){list.textContent='No hay cobertura registrada todavía.';}else rows.sort((a,b)=>a.symbol.localeCompare(b.symbol)).forEach(row=>{const age=Math.max(0,Math.round((Date.now()-new Date(row.completed_at).getTime())/60000));const fresh=age<=90&&row.status==='ok';const item=document.createElement('div');item.className='choice';const label=document.createElement('strong');label.textContent=row.symbol+' · '+(fresh?'DATOS RECIENTES':row.status==='ok'?'DATOS ATRASADOS':'ERROR DEL PROVEEDOR');const detail=document.createElement('div');detail.className='small muted';detail.textContent=(row.bars_saved||0)+' velas · hace '+age+' min'+(row.error_message?' · '+row.error_message:'');item.append(label,detail);list.appendChild(item);});}
+ if(list){list.innerHTML='';const rows=x.providerCoverage||[];if(!rows.length){list.textContent='No hay cobertura verificada de proveedores todavía.';}else rows.sort((a,b)=>a.symbol.localeCompare(b.symbol)).forEach(row=>{
+  const p=row.provider||{},status=row.coverage_status||'pending';
+  const checked=row.last_checked_at?Math.max(0,Math.round((Date.now()-new Date(row.last_checked_at).getTime())/60000)):null;
+  const fresh=row.last_success_at&&(Date.now()-new Date(row.last_success_at).getTime()<=90*60000);
+  const labels={available:fresh?'DATOS RECIENTES':'DATOS DISPONIBLES · REVISAR FRESCURA',pending:'PENDIENTE DE PRUEBA',unsupported_plan:'NO INCLUIDO EN EL PLAN',unsupported_region:'NO DISPONIBLE EN ESTA REGIÓN',unsupported_asset:'ACTIVO NO SOPORTADO',permission_pending:'PERMISO PENDIENTE',provider_error:'ERROR DEL PROVEEDOR',disabled:'PROVEEDOR DESACTIVADO'};
+  const item=document.createElement('div');item.className='choice';
+  const label=document.createElement('strong');label.textContent=row.symbol+' · '+(labels[status]||status.toUpperCase());
+  const detail=document.createElement('div');detail.className='small muted';
+  const license=p.commercial_display_status==='permitted'?'licencia comercial permitida':p.commercial_display_status==='restricted'?'uso comercial restringido':p.commercial_display_status==='license_required'?'requiere licencia':'uso comercial sin verificar';
+  detail.textContent=(p.display_name||'Proveedor')+' · '+license+(checked!==null?' · comprobado hace '+checked+' min':' · aún no comprobado')+(row.last_error?' · '+row.last_error:'');
+  item.append(label,detail);list.appendChild(item);
+ });}
 }
 function loadCachedCollectorStatus(){
  try{const x=JSON.parse(localStorage.getItem('tia_collector_snapshot')||'null');if(x){renderCollectorSnapshot(x);$('collectorDetail').textContent+=' · Copia local del '+new Date(x.at).toLocaleString('es-CU');}else $('collectorDetail').textContent='No hay una copia local previa. Conéctate para cargar el estado.';}catch(_){}
