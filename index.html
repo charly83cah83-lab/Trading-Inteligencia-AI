@@ -36,7 +36,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <div class="card span4"><h2>Configuración</h2><div class="field"><label>Intervalo</label><select id="interval"><option value="1day">1 día</option><option value="4h">4 horas</option><option value="1h" selected>1 hora</option><option value="30min">30 minutos</option><option value="15min">15 minutos</option><option value="5min">5 minutos</option></select></div><div class="field"><label>Coste estimado por operación (puntos básicos)</label><input id="cost" type="number" min="0" max="500" value="10"></div><div class="field"><label>Instrumentos (máximo 4)</label><div class="list" id="symbols"><label class="choice"><input type="checkbox" value="BTC/USD" checked> BTC/USD</label><label class="choice"><input type="checkbox" value="ETH/USD"> ETH/USD</label><label class="choice"><input type="checkbox" value="EUR/USD" checked> EUR/USD</label><label class="choice"><input type="checkbox" value="GBP/USD"> GBP/USD</label><label class="choice"><input type="checkbox" value="USD/JPY"> USD/JPY</label><label class="choice"><input type="checkbox" value="XAU/USD" checked> XAU/USD</label><label class="choice"><input type="checkbox" value="XAG/USD"> XAG/USD</label><label class="choice"><input type="checkbox" value="WTI/USD"> WTI/USD</label><label class="choice"><input type="checkbox" value="SPX500"> SPX500</label><label class="choice"><input type="checkbox" value="NAS100"> NAS100</label></div></div></div>
 <div class="card span8"><h2>Estrategias</h2><p class="muted small">Selecciona las estrategias que quieres evaluar. Se cargan desde la base de datos.</p><div class="actions"><button class="ghost" id="allStrategies">Seleccionar todas</button><button class="ghost" id="noStrategies">Ninguna</button><button class="ghost" id="reloadStrategies">Actualizar lista</button></div><div class="list section" id="strategies"><span class="muted small">Cargando plantillas…</span></div><div class="actions"><button id="runBtn">Ejecutar experimento histórico</button></div><p id="runMsg" class="small muted" aria-live="polite"></p></div>
 </div></div>
-<div id="results" class="tabview hidden"><div class="card"><h2>Resultados de experimentos</h2><p class="muted small">Los resultados se muestran después de ejecutar un backtest.</p><div class="actions"><button class="ghost" id="refreshResults">Actualizar</button></div><div class="tablewrap section"><table><thead><tr><th>Fecha</th><th>Instrumento</th><th>Estrategia</th><th>Retorno</th><th>Drawdown</th><th>Acierto</th><th>Operaciones</th></tr></thead><tbody id="resultsBody"><tr><td colspan="7" class="muted">Sin resultados cargados.</td></tr></tbody></table></div><p id="resultsMsg" class="small muted"></p></div></div>
+<div id="results" class="tabview hidden"><div class="card"><h2>Resultados de experimentos</h2><p class="muted small">Los resultados se muestran después de ejecutar un backtest.</p><div class="actions"><button class="ghost" id="refreshResults">Actualizar</button></div><div id="decisionSummary" class="section"><div class="notice">Preparando una lectura sencilla de los resultados…</div></div><div class="tablewrap section"><table><thead><tr><th>Fecha</th><th>Instrumento</th><th>Estrategia</th><th>Retorno</th><th>Drawdown</th><th>Acierto</th><th>Operaciones</th></tr></thead><tbody id="resultsBody"><tr><td colspan="7" class="muted">Sin resultados cargados.</td></tr></tbody></table></div><p id="resultsMsg" class="small muted"></p></div></div>
 </main>
 <footer>Trading Inteligencia AI · Sin promesas de rentabilidad · Simulación antes de cualquier riesgo real</footer>
 </div>
@@ -99,6 +99,7 @@ async function loadResults(){
    .order('created_at',{ascending:false}).limit(300);
   if(error)throw error;
   if(!data?.length){body.innerHTML='<tr><td colspan="7" class="muted">Todavía no hay resultados.</td></tr>';msg('resultsMsg','');return;}
+  renderDecisionSummary(data);
   const instrumentIds=[...new Set(data.map(x=>x.instrument_id).filter(Boolean))];
   const strategyIds=[...new Set(data.map(x=>x.strategy_template_id).filter(Boolean))];
   const [ir,sr]=await Promise.all([
@@ -125,6 +126,39 @@ async function loadResults(){
   body.innerHTML='<tr><td colspan="7" class="bad">No se pudieron cargar los resultados: '+escapeHtml(e.message||'Error desconocido')+'</td></tr>';
   msg('resultsMsg','Comprueba la conexión y pulsa Actualizar.','bad');
  }
+}
+function renderDecisionSummary(rows){
+ const box=$('decisionSummary');
+ const groups=new Map();
+ rows.forEach(r=>{
+  const key=r.instrument_id+'|'+r.strategy_template_id;
+  if(!groups.has(key))groups.set(key,{instrumentId:r.instrument_id,strategyId:r.strategy_template_id,splits:{}});
+  groups.get(key).splits[r.split_name]=r;
+ });
+ const candidates=[];
+ groups.forEach(g=>{
+  const v=g.splits.validation?.metrics||{}; const t=g.splits.test?.metrics||{};
+  const vt=Number(g.splits.validation?.trades_count??v.trade_count??0);
+  const tt=Number(g.splits.test?.trades_count??t.trade_count??0);
+  const valid=!!g.splits.validation&&!!g.splits.test;
+  const pass=valid&&Number(v.total_return_pct)>0&&Number(t.total_return_pct)>0&&Number(v.profit_factor)>1&&Number(t.profit_factor)>1&&vt>=20&&tt>=20;
+  candidates.push({...g,vt,tt,pass,score:Math.min(Number(v.total_return_pct)||0,Number(t.total_return_pct)||0),vret:Number(v.total_return_pct)||0,tret:Number(t.total_return_pct)||0,vpf:Number(v.profit_factor)||0,tpf:Number(t.profit_factor)||0});
+ });
+ candidates.sort((a,b)=>(Number(b.pass)-Number(a.pass))||b.score-a.score);
+ const approved=candidates.filter(x=>x.pass);
+ const best=approved[0];
+ let html='';
+ if(best){
+  html='<div class="card"><div class="muted small">LECTURA AUTOMÁTICA · SOLO SIMULACIÓN</div><h2 class="ok">Candidata para seguir probando</h2><div class="stat">'+escapeHtml(best.instrumentId)+'</div><p><b>Estrategia:</b> '+escapeHtml(best.strategyId)+'</p><p>Validación: '+fmtPct(best.vret)+' · Prueba: '+fmtPct(best.tret)+'</p><p class="muted small">Superó los filtros iniciales: retorno positivo y factor de ganancia superior a 1 en validación y prueba, con al menos 20 operaciones en cada tramo. No es garantía ni señal para usar dinero real.</p></div>';
+ }else{
+  html='<div class="card"><div class="muted small">LECTURA AUTOMÁTICA · DECISIÓN SENCILLA</div><h2 class="bad">Por ahora: NO OPERAR</h2><p>Los resultados todavía no demuestran una estrategia suficientemente consistente fuera del período de entrenamiento.</p><p class="muted small">Para recomendar una estrategia exigiremos que gane tanto en validación como en prueba, tenga factor de ganancia mayor que 1 y acumule al menos 20 operaciones en cada tramo. Si faltan operaciones, la decisión será «seguir probando», no inventar un porcentaje de éxito.</p></div>';
+ }
+ const top=candidates.slice(0,3);
+ if(top.length){html+='<div class="card section"><h2>Las estrategias más prometedoras (provisionales)</h2>';
+ top.forEach((x,i)=>{html+='<p><b>'+(i+1)+'. '+escapeHtml(x.strategyId)+'</b> · '+escapeHtml(x.instrumentId)+'<br><span class="muted small">Validación '+fmtPct(x.vret)+' | Prueba '+fmtPct(x.tret)+' | Operaciones '+x.vt+'/'+x.tt+' | '+(x.pass?'Pasa filtros':'No pasa filtros')+'</span></p>';});
+ html+='<p class="muted small">El ranking prioriza resultados de prueba y validación; no se elige por el mayor porcentaje de aciertos solamente.</p></div>';
+ }
+ box.innerHTML=html;
 }
 function fmtPct(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return'—';return Number(v).toFixed(2)+'%'}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
