@@ -99,7 +99,6 @@ async function loadResults(){
    .order('created_at',{ascending:false}).limit(300);
   if(error)throw error;
   if(!data?.length){body.innerHTML='<tr><td colspan="7" class="muted">Todavía no hay resultados.</td></tr>';msg('resultsMsg','');return;}
-  renderDecisionSummary(data);
   const instrumentIds=[...new Set(data.map(x=>x.instrument_id).filter(Boolean))];
   const strategyIds=[...new Set(data.map(x=>x.strategy_template_id).filter(Boolean))];
   const [ir,sr]=await Promise.all([
@@ -109,6 +108,7 @@ async function loadResults(){
   if(ir.error)throw ir.error;if(sr.error)throw sr.error;
   const instruments=new Map((ir.data||[]).map(x=>[x.id,x.symbol]));
   const templates=new Map((sr.data||[]).map(x=>[x.id,x.name]));
+  renderDecisionSummary(data,instruments,templates);
   body.innerHTML=data.map(x=>{
    const m=x.metrics||{};
    const ret=m.total_return_pct;
@@ -127,7 +127,7 @@ async function loadResults(){
   msg('resultsMsg','Comprueba la conexión y pulsa Actualizar.','bad');
  }
 }
-function renderDecisionSummary(rows){
+function renderDecisionSummary(rows,instruments,templates){
  const box=$('decisionSummary');
  const groups=new Map();
  rows.forEach(r=>{
@@ -149,13 +149,13 @@ function renderDecisionSummary(rows){
  const best=approved[0];
  let html='';
  if(best){
-  html='<div class="card"><div class="muted small">LECTURA AUTOMÁTICA · SOLO SIMULACIÓN</div><h2 class="ok">Candidata para seguir probando</h2><div class="stat">'+escapeHtml(best.instrumentId)+'</div><p><b>Estrategia:</b> '+escapeHtml(best.strategyId)+'</p><p>Validación: '+fmtPct(best.vret)+' · Prueba: '+fmtPct(best.tret)+'</p><p class="muted small">Superó los filtros iniciales: retorno positivo y factor de ganancia superior a 1 en validación y prueba, con al menos 20 operaciones en cada tramo. No es garantía ni señal para usar dinero real.</p></div>';
+  html='<div class="card"><div class="muted small">LECTURA AUTOMÁTICA · SOLO SIMULACIÓN</div><h2 class="ok">Candidata para seguir probando</h2><div class="stat">'+escapeHtml(instruments.get(best.instrumentId)||'Instrumento sin nombre')+'</div><p><b>Estrategia:</b> '+escapeHtml(templates.get(best.strategyId)||best.strategyId)+'</p><p>Validación: '+fmtPct(best.vret)+' · Prueba: '+fmtPct(best.tret)+'</p><p class="muted small">Superó los filtros iniciales: retorno positivo y factor de ganancia superior a 1 en validación y prueba, con al menos 20 operaciones en cada tramo. No es garantía ni señal para usar dinero real.</p></div>';
  }else{
   html='<div class="card"><div class="muted small">LECTURA AUTOMÁTICA · DECISIÓN SENCILLA</div><h2 class="bad">Por ahora: NO OPERAR</h2><p>Los resultados todavía no demuestran una estrategia suficientemente consistente fuera del período de entrenamiento.</p><p class="muted small">Para recomendar una estrategia exigiremos que gane tanto en validación como en prueba, tenga factor de ganancia mayor que 1 y acumule al menos 20 operaciones en cada tramo. Si faltan operaciones, la decisión será «seguir probando», no inventar un porcentaje de éxito.</p></div>';
  }
  const top=candidates.slice(0,3);
  if(top.length){html+='<div class="card section"><h2>Las estrategias más prometedoras (provisionales)</h2>';
- top.forEach((x,i)=>{html+='<p><b>'+(i+1)+'. '+escapeHtml(x.strategyId)+'</b> · '+escapeHtml(x.instrumentId)+'<br><span class="muted small">Validación '+fmtPct(x.vret)+' | Prueba '+fmtPct(x.tret)+' | Operaciones '+x.vt+'/'+x.tt+' | '+(x.pass?'Pasa filtros':'No pasa filtros')+'</span></p>';});
+ top.forEach((x,i)=>{html+='<p><b>'+(i+1)+'. '+escapeHtml(templates.get(x.strategyId)||x.strategyId)+'</b> · '+escapeHtml(instruments.get(x.instrumentId)||'Instrumento sin nombre')+'<br><span class="muted small">Validación '+fmtPct(x.vret)+' | Prueba '+fmtPct(x.tret)+' | Operaciones '+x.vt+'/'+x.tt+' | '+(x.pass?'Pasa filtros':'No pasa filtros')+'</span></p>';});
  html+='<p class="muted small">El ranking prioriza resultados de prueba y validación; no se elige por el mayor porcentaje de aciertos solamente.</p></div>';
  }
  box.innerHTML=html;
