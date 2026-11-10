@@ -113,8 +113,8 @@ async function analyzeLiveMarket(){
   const valid=Number.isFinite(n)&&Number.isFinite(sl)&&Number.isFinite(tp)&&sl>0&&tp>0;
   const rr=valid&&Math.abs(n-sl)>0?Math.abs(tp-n)/Math.abs(n-sl):null;
   const side=a.side==='long'?'ALZA · POSIBLE COMPRA':a.side==='short'?'BAJA · POSIBLE VENTA':'SIN DIRECCIÓN CLARA';
-  const decision=a.decision==='potential_entry'&&valid&&rr>=1.5?side):'ESPERAR · SIN ENTRADA';
-  const tone=decision==='NO OPERAR'?'bad':'ok';
+  const decision=a.decision==='potential_entry'&&valid&&rr>=1.5?side:'ESPERAR · SIN ENTRADA';
+  const tone=decision.startsWith('ESPERAR')?'bad':'ok';
   const fmt=v=>Number.isFinite(Number(v))?Number(v).toPrecision(8):'—';
   const pct=v=>v===null||v===undefined?'No calibrada':(Number.isFinite(Number(v))?(Number(v)*100).toFixed(1)+'%':'—');
   out.innerHTML='<div class="card"><div class="muted small">LECTURA DEL MERCADO · '+escapeHtml(symbol)+' · '+escapeHtml(interval)+'</div><h2 class="'+tone+'">'+decision+'</h2><div class="grid"><div class="span4"><div class="muted small">Precio observado</div><div class="stat">'+fmt(a.price)+'</div></div><div class="span4"><div class="muted small">Stop Loss teórico</div><div class="stat">'+fmt(a.stop_loss)+'</div></div><div class="span4"><div class="muted small">Take Profit teórico</div><div class="stat">'+fmt(a.take_profit)+'</div></div></div><p>Dirección estimada: <b> '+side+'</b> · Relación riesgo/beneficio teórica: <b>'+(rr===null?'—':rr.toFixed(2)+' : 1')+'</b> · Confianza interna del modelo: <b>'+pct(a.confidence)+'</b></p><p>RSI: '+fmt(a.rsi)+' · EMA20: '+fmt(a.ema20)+' · EMA50: '+fmt(a.ema50)+' · MACD: '+fmt(a.macd)+' · ATR: '+fmt(a.atr)+'</p><p class="muted small">'+escapeHtml(a.note||'Señal algorítmica experimental.')+'</p><div class="notice">El Stop Loss y Take Profit son estimaciones del modelo, no órdenes colocadas. No se calcula tamaño de posición porque faltan especificaciones contractuales y valor por punto de cada instrumento. La confianza no es una probabilidad calibrada de ganar.</div></div>';
