@@ -44,7 +44,7 @@ button,input,select{font:inherit}button{border:0;border-radius:12px;padding:12px
 <div class="grid">
 <div class="card span4"><h2>Configuración</h2><div class="field"><label>Intervalo</label><select id="interval"><option value="1day">1 día</option><option value="4h">4 horas</option><option value="1h" selected>1 hora</option><option value="30min">30 minutos</option><option value="15min">15 minutos</option><option value="5min">5 minutos</option></select></div><div class="field"><label>Coste estimado por operación (puntos básicos)</label><input id="cost" type="number" min="0" max="500" value="10"></div><div class="field"><label>Instrumentos (máximo 4)</label><div class="list" id="symbols"><label class="choice"><input type="checkbox" value="BTC/USD" checked> BTC/USD</label><label class="choice"><input type="checkbox" value="ETH/USD"> ETH/USD</label><label class="choice"><input type="checkbox" value="EUR/USD" checked> EUR/USD</label><label class="choice"><input type="checkbox" value="GBP/USD"> GBP/USD</label><label class="choice"><input type="checkbox" value="USD/JPY"> USD/JPY</label><label class="choice"><input type="checkbox" value="XAU/USD" checked> XAU/USD</label><label class="choice"><input type="checkbox" value="XAG/USD"> XAG/USD</label><label class="choice"><input type="checkbox" value="WTI/USD"> WTI/USD</label><label class="choice"><input type="checkbox" value="SPX500"> SPX500</label><label class="choice"><input type="checkbox" value="NAS100"> NAS100</label></div></div></div>
 <div class="card span8"><h2>Estrategias</h2><p class="muted small">Selecciona las estrategias que quieres evaluar. Se cargan desde la base de datos.</p><div class="actions"><button class="ghost" id="allStrategies">Seleccionar todas</button><button class="ghost" id="noStrategies">Ninguna</button><button class="ghost" id="reloadStrategies">Actualizar lista</button></div><div class="list section" id="strategies"><span class="muted small">Cargando plantillas…</span></div><div class="actions"><button id="runBtn">Ejecutar experimento histórico</button></div><p id="runMsg" class="small muted" aria-live="polite"></p></div>
-</div></div>
+<div class="card span12"><h2>Validación Walk-Forward · pruebas fuera de muestra</h2><p class="muted small">Divide el histórico en cuatro ventanas cronológicas consecutivas. Cada ventana se evalúa usando únicamente información anterior para generar las señales. Requiere al menos 300 velas disponibles por instrumento. No activa operaciones.</p><div class="actions"><button id="runWalkForwardBtn" type="button">Ejecutar validación Walk-Forward</button></div><p id="wfMsg" class="small muted" aria-live="polite">Pendiente de ejecución.</p><div id="wfSummary"></div></div></div></div>
 <div id="learn" class="tabview hidden">
  <div class="grid">
   <div class="card span12"><h2>Centro de aprendizaje cuantitativo</h2><p class="muted small">Memoria estadística de experimentos y señales evaluadas. Este módulo mide evidencia; no modifica modelos ni activa operaciones automáticamente.</p><div class="actions"><button id="refreshLearning" type="button">Actualizar aprendizaje</button></div><p id="learningStamp" class="small muted">Pendiente de consulta.</p></div>
@@ -192,13 +192,37 @@ async function runExperiment(){
  finally{btn.disabled=false}
 }
 $('runBtn').onclick=runExperiment;
+$('runWalkForwardBtn').onclick=runWalkForward;
+async function runWalkForward(){
+ const btn=$('runWalkForwardBtn'),symbols=[...document.querySelectorAll('#symbols input:checked')].map(x=>x.value),selected=[...document.querySelectorAll('#strategies input:checked')].map(x=>x.value);
+ if(!symbols.length||symbols.length>4){msg('wfMsg','Selecciona entre 1 y 4 instrumentos.','bad');return}
+ if(!selected.length||selected.length>24){msg('wfMsg','Selecciona entre 1 y 24 estrategias.','bad');return}
+ btn.disabled=true;$('wfSummary').innerHTML='';msg('wfMsg','Comprobando sesión y preparando cuatro ventanas históricas…');
+ try{
+  const {data:{session},error}=await supabaseClient.auth.getSession();if(error)throw error;
+  if(!session?.access_token)throw new Error('Tu sesión expiró. Vuelve a entrar.');
+  msg('wfMsg','Ejecutando Walk-Forward con datos del proveedor. Mantén abierta esta pantalla…');
+  const response=await fetch(SUPABASE_URL+'/functions/v1/walk-forward-runner',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({symbols,strategies:selected,interval:$('interval').value,cost_bps:Number($('cost').value)||0})});
+  const body=await response.json().catch(()=>({}));
+  if(!response.ok||body.status!=='completed')throw new Error([body.error||('Error HTTP '+response.status),body.details,Array.isArray(body.provider_errors)&&body.provider_errors.length?'Proveedor: '+body.provider_errors.join(' | '):''].filter(Boolean).join(' · '));
+  const ids=[...new Set((body.window_summaries||[]).map(x=>x.instrument_id))];
+  const {data:ins,error:ie}=await supabaseClient.from('instruments').select('id,symbol').in('id',ids);if(ie)throw ie;
+  const names=new Map((ins||[]).map(x=>[x.id,x.symbol]));
+  const rows=body.window_summaries||[];
+  $('wfSummary').innerHTML=rows.length?'<div class="tablewrap section"><table><thead><tr><th>Instrumento</th><th>Estrategia</th><th>Ventanas positivas</th><th>Retorno medio</th><th>Peor ventana</th><th>Drawdown máx.</th><th>Operaciones</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+escapeHtml(names.get(x.instrument_id)||'—')+'</td><td>'+escapeHtml(x.strategy)+'</td><td>'+x.positive_folds+'/'+x.folds+'</td><td>'+fmtPct(x.mean_return_pct)+'</td><td>'+fmtPct(x.worst_fold_pct)+'</td><td>'+fmtPct(x.max_fold_drawdown_pct)+'</td><td>'+x.total_trades+'</td></tr>').join('')+'</tbody></table></div><p class="notice">Estos son resultados experimentales de ventanas fuera de muestra. Una media positiva no basta: revisaremos consistencia, operaciones, costes y más períodos antes de considerar cualquier estrategia. No operar con dinero real.</p>':'<div class="notice">No hay ventanas completas para mostrar.</div>';
+  msg('wfMsg','Walk-Forward terminado: '+body.rows_saved+' resultados guardados en '+body.folds+' ventanas por combinación.','ok');
+  await loadResults();
+  document.querySelector('[data-tab="results"]').click();
+ }catch(e){msg('wfMsg','No se pudo completar Walk-Forward: '+(e.message||'error desconocido'),'bad')}
+ finally{btn.disabled=false}
+}
 async function loadResults(){
  const body=$('resultsBody');
  body.innerHTML='<tr><td colspan="7">Cargando resultados…</td></tr>';
  msg('resultsMsg','Consultando experimentos guardados…');
  try{
   const {data:batchRows,error:batchError}=await supabaseClient.from('experiment_batches')
-   .select('id,created_at,status').order('created_at',{ascending:false}).limit(1);
+   .select('id,created_at,status,config').order('created_at',{ascending:false}).limit(1);
   if(batchError)throw batchError;
   const latestBatch=batchRows?.[0];
   if(!latestBatch){body.innerHTML='<tr><td colspan="7" class="muted">Todavía no hay experimentos.</td></tr>';msg('resultsMsg','');$('decisionSummary').innerHTML='<div class="notice">Ejecuta un experimento en Laboratorio para generar resultados.</div>';return;}
@@ -216,7 +240,8 @@ async function loadResults(){
   if(ir.error)throw ir.error;if(sr.error)throw sr.error;
   const instruments=new Map((ir.data||[]).map(x=>[x.id,x.symbol]));
   const templates=new Map((sr.data||[]).map(x=>[x.id,x.name]));
-  renderDecisionSummary(data,instruments,templates);
+  if(latestBatch.config?.mode==='walk_forward')renderWalkForwardSummary(data,instruments,templates);
+  else renderDecisionSummary(data,instruments,templates);
   body.innerHTML=data.map(x=>{
    const m=x.metrics||{};
    const ret=m.total_return_pct;
@@ -234,6 +259,15 @@ async function loadResults(){
   body.innerHTML='<tr><td colspan="7" class="bad">No se pudieron cargar los resultados: '+escapeHtml(e.message||'Error desconocido')+'</td></tr>';
   msg('resultsMsg','Comprueba la conexión y pulsa Actualizar.','bad');
  }
+}
+function renderWalkForwardSummary(rows,instruments,templates){
+ const groups=new Map();
+ rows.forEach(r=>{const k=r.instrument_id+'|'+r.strategy_template_id;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)});
+ const ranked=[...groups.values()].map(a=>{const returns=a.map(x=>Number(x.metrics?.total_return_pct)||0);return{instrument:a[0].instrument_id,strategy:a[0].strategy_template_id,folds:a.length,positive:returns.filter(x=>x>0).length,mean:returns.reduce((s,x)=>s+x,0)/(returns.length||1),worst:Math.min(...returns),dd:Math.max(...a.map(x=>Number(x.metrics?.max_drawdown_pct)||0)),trades:a.reduce((s,x)=>s+Number(x.trades_count||0),0),enough:a.every(x=>Number(x.trades_count||0)>=10)}});
+ ranked.sort((a,b)=>b.mean-a.mean);
+ let html='<div class="card"><div class="muted small">LECTURA AUTOMÁTICA · VALIDACIÓN CRONOLÓGICA</div><h2 class="bad">Walk-Forward completado · NO OPERAR</h2><p>Se evaluaron '+rows.length+' ventanas fuera de muestra. El promedio es descriptivo y no constituye una prueba definitiva de rentabilidad. Ninguna estrategia queda autorizada por este resultado.</p><p class="muted small">Para avanzar exigiremos ventanas positivas repetidas, suficientes operaciones en cada ventana, drawdown controlado y costes realistas de spread y deslizamiento. Las reglas de estrategia todavía son fijas; este proceso no entrena ni modifica modelos.</p></div>';
+ if(ranked.length){html+='<div class="card section"><h2>Comparación por ventanas</h2>';ranked.slice(0,8).forEach((x,i)=>{html+='<p><b>'+(i+1)+'. '+escapeHtml(templates.get(x.strategy)||x.strategy)+'</b> · '+escapeHtml(instruments.get(x.instrument)||'—')+'<br><span class="muted small">Ventanas positivas '+x.positive+'/'+x.folds+' · Retorno medio '+fmtPct(x.mean)+' · Peor ventana '+fmtPct(x.worst)+' · Operaciones '+x.trades+(x.enough?'':' · Muestra insuficiente')+'</span></p>'});html+='</div>'}
+ $('decisionSummary').innerHTML=html;
 }
 function renderDecisionSummary(rows,instruments,templates){
  const box=$('decisionSummary');
