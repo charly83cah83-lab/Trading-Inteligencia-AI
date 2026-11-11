@@ -254,7 +254,7 @@ async function loadResults(){
     '<td>'+escapeHtml(templates.get(x.strategy_template_id)||x.strategy_template_id||'—')+'<br><span class="muted small">'+escapeHtml(split)+'</span></td>'+
     '<td>'+fmtPct(ret)+'</td><td>'+fmtPct(dd)+'</td><td>'+fmtPct(win)+'</td><td>'+escapeHtml(String(trades))+'</td></tr>';
   }).join('');
-  msg('resultsMsg',data.length+' registros cargados. Cada estrategia se presenta por separado para entrenamiento, validación y prueba.','ok');
+  msg('resultsMsg',data.length+' registros cargados. '+(latestBatch.config?.mode==='walk_forward'?'Resultados organizados en cuatro ventanas cronológicas fuera de muestra.':'Resultados separados por entrenamiento, validación y prueba.'),'ok');
  }catch(e){
   body.innerHTML='<tr><td colspan="7" class="bad">No se pudieron cargar los resultados: '+escapeHtml(e.message||'Error desconocido')+'</td></tr>';
   msg('resultsMsg','Comprueba la conexión y pulsa Actualizar.','bad');
