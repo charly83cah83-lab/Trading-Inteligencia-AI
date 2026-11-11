@@ -197,11 +197,16 @@ async function loadResults(){
  body.innerHTML='<tr><td colspan="7">Cargando resultados…</td></tr>';
  msg('resultsMsg','Consultando experimentos guardados…');
  try{
+  const {data:batchRows,error:batchError}=await supabaseClient.from('experiment_batches')
+   .select('id,created_at,status').order('created_at',{ascending:false}).limit(1);
+  if(batchError)throw batchError;
+  const latestBatch=batchRows?.[0];
+  if(!latestBatch){body.innerHTML='<tr><td colspan="7" class="muted">Todavía no hay experimentos.</td></tr>';msg('resultsMsg','');$('decisionSummary').innerHTML='<div class="notice">Ejecuta un experimento en Laboratorio para generar resultados.</div>';return;}
   const {data,error}=await supabaseClient.from('experiment_results')
    .select('id,batch_id,strategy_template_id,instrument_id,split_name,metrics,trades_count,created_at')
-   .order('created_at',{ascending:false}).limit(300);
+   .eq('batch_id',latestBatch.id).order('created_at',{ascending:false}).limit(500);
   if(error)throw error;
-  if(!data?.length){body.innerHTML='<tr><td colspan="7" class="muted">Todavía no hay resultados.</td></tr>';msg('resultsMsg','');return;}
+  if(!data?.length){body.innerHTML='<tr><td colspan="7" class="muted">El último experimento no generó resultados.</td></tr>';msg('resultsMsg','Último experimento: '+latestBatch.status+'.');$('decisionSummary').innerHTML='<div class="notice">Este experimento no contiene resultados para evaluar.</div>';return;}
   const instrumentIds=[...new Set(data.map(x=>x.instrument_id).filter(Boolean))];
   const strategyIds=[...new Set(data.map(x=>x.strategy_template_id).filter(Boolean))];
   const [ir,sr]=await Promise.all([
